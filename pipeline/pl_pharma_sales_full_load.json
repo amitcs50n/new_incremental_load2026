@@ -50,6 +50,62 @@
 						"type": "DatasetReference"
 					}
 				]
+			},
+			{
+				"name": "LookupLastWatermark",
+				"type": "Lookup",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "MySqlSource",
+						"query": "SELECT last_watermark \nFROM pipeline_watermark_audit \nWHERE pipeline_name = 'pl_pharma_sales_incremental';"
+					},
+					"dataset": {
+						"referenceName": "ds_mysql_watermark",
+						"type": "DatasetReference"
+					}
+				}
+			},
+			{
+				"name": "Copy data2",
+				"type": "Copy",
+				"dependsOn": [
+					{
+						"activity": "LookupLastWatermark",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "MySqlSource",
+						"query": "SELECT *\nFROM pharma_sales\nWHERE updated_at > '@{activity('LookupLastWatermark').output.firstRow.last_watermark}'"
+					},
+					"enableStaging": false
+				},
+				"inputs": [
+					{
+						"referenceName": "MySqlTable1",
+						"type": "DatasetReference"
+					}
+				]
 			}
 		],
 		"annotations": []

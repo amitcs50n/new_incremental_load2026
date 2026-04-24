@@ -1,0 +1,15 @@
+{
+	"name": "ds_mysql_watermark",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "MySql1",
+			"type": "LinkedServiceReference"
+		},
+		"annotations": [],
+		"type": "MySqlTable",
+		"schema": [],
+		"typeProperties": {
+			"tableName": "`pipeline_watermark_audit`"
+		}
+	}
+}
