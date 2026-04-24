@@ -77,7 +77,7 @@
 				}
 			},
 			{
-				"name": "Copy data2",
+				"name": "incremental load to ADLS",
 				"type": "Copy",
 				"dependsOn": [
 					{
@@ -129,6 +129,62 @@
 				"outputs": [
 					{
 						"referenceName": "ds_adls_pharma_sales_parquet",
+						"type": "DatasetReference"
+					}
+				]
+			},
+			{
+				"name": "update watermark",
+				"type": "Copy",
+				"dependsOn": [
+					{
+						"activity": "incremental load to ADLS",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "MySqlSource",
+						"query": "UPDATE pipeline_watermark_audit\nSET last_watermark = (\n    SELECT MAX(updated_at) FROM pharma_sales\n)\nWHERE pipeline_name = 'pl_pharma_sales_incremental';"
+					},
+					"sink": {
+						"type": "ParquetSink",
+						"storeSettings": {
+							"type": "AzureBlobFSWriteSettings"
+						},
+						"formatSettings": {
+							"type": "ParquetWriteSettings"
+						}
+					},
+					"enableStaging": false,
+					"translator": {
+						"type": "TabularTranslator",
+						"typeConversion": true,
+						"typeConversionSettings": {
+							"allowDataTruncation": true,
+							"treatBooleanAsNumber": false
+						}
+					}
+				},
+				"inputs": [
+					{
+						"referenceName": "MySqlTable1",
+						"type": "DatasetReference"
+					}
+				],
+				"outputs": [
+					{
+						"referenceName": "Parquet1",
 						"type": "DatasetReference"
 					}
 				]
