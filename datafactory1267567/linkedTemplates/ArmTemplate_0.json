@@ -7,6 +7,10 @@
 			"metadata": "Data Factory name",
 			"defaultValue": "datafactory1267567"
 		},
+		"AzureDatabricks_linked_service_accessToken": {
+			"type": "secureString",
+			"metadata": "Secure string for 'accessToken' of 'AzureDatabricks_linked_service'"
+		},
 		"AzureSqlDatabase_linked_service_password": {
 			"type": "secureString",
 			"metadata": "Secure string for 'password' of 'AzureSqlDatabase_linked_service'"
@@ -14,6 +18,10 @@
 		"MySql1_password": {
 			"type": "secureString",
 			"metadata": "Secure string for 'password' of 'MySql1'"
+		},
+		"AzureDatabricks_linked_service_properties_typeProperties_existingClusterId": {
+			"type": "string",
+			"defaultValue": "0425-144312-tzspgoez"
 		},
 		"AzureSqlDatabase_linked_service_properties_typeProperties_server": {
 			"type": "string",
@@ -49,24 +57,19 @@
 	},
 	"resources": [
 		{
-			"name": "[concat(parameters('factoryName'), '/integrationRuntime1')]",
-			"type": "Microsoft.DataFactory/factories/integrationRuntimes",
+			"name": "[concat(parameters('factoryName'), '/AzureDatabricks_linked_service')]",
+			"type": "Microsoft.DataFactory/factories/linkedServices",
 			"apiVersion": "2018-06-01",
 			"properties": {
-				"type": "SelfHosted",
-				"description": "Getting raw data from MySQL ",
-				"typeProperties": {}
-			},
-			"dependsOn": []
-		},
-		{
-			"name": "[concat(parameters('factoryName'), '/credential1')]",
-			"type": "Microsoft.DataFactory/factories/credentials",
-			"apiVersion": "2018-06-01",
-			"properties": {
-				"type": "ManagedIdentity",
+				"annotations": [],
+				"type": "AzureDatabricks",
 				"typeProperties": {
-					"resourceId": "/subscriptions/4de5e007-e4c4-4e2b-bb58-efa8aa3a8785/resourceGroups/WIF-RG/providers/Microsoft.ManagedIdentity/userAssignedIdentities/AmitIdentity"
+					"domain": "https://adb-7405612611467800.0.azuredatabricks.net",
+					"accessToken": {
+						"type": "SecureString",
+						"value": "[parameters('AzureDatabricks_linked_service_accessToken')]"
+					},
+					"existingClusterId": "[parameters('AzureDatabricks_linked_service_properties_typeProperties_existingClusterId')]"
 				}
 			},
 			"dependsOn": []
@@ -92,6 +95,65 @@
 				}
 			},
 			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/integrationRuntime1')]",
+			"type": "Microsoft.DataFactory/factories/integrationRuntimes",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"type": "SelfHosted",
+				"description": "Getting raw data from MySQL ",
+				"typeProperties": {}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/credential1')]",
+			"type": "Microsoft.DataFactory/factories/credentials",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"type": "ManagedIdentity",
+				"typeProperties": {
+					"resourceId": "/subscriptions/4de5e007-e4c4-4e2b-bb58-efa8aa3a8785/resourceGroups/WIF-RG/providers/Microsoft.ManagedIdentity/userAssignedIdentities/AmitIdentity"
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/ds_azsql_watermark')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "AzureSqlDatabase_linked_service",
+					"type": "LinkedServiceReference"
+				},
+				"annotations": [],
+				"type": "AzureSqlTable",
+				"schema": [
+					{
+						"name": "pipeline_name",
+						"type": "varchar"
+					},
+					{
+						"name": "last_watermark",
+						"type": "datetime2",
+						"scale": 7
+					},
+					{
+						"name": "updated_at",
+						"type": "datetime2",
+						"scale": 7
+					}
+				],
+				"typeProperties": {
+					"schema": "dbo",
+					"table": "pipeline_watermark_audit"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/AzureSqlDatabase_linked_service')]"
+			]
 		},
 		{
 			"name": "[concat(parameters('factoryName'), '/AzureDataLakeStorage1')]",
@@ -139,42 +201,6 @@
 			},
 			"dependsOn": [
 				"[concat(variables('factoryId'), '/integrationRuntimes/integrationRuntime1')]"
-			]
-		},
-		{
-			"name": "[concat(parameters('factoryName'), '/ds_azsql_watermark')]",
-			"type": "Microsoft.DataFactory/factories/datasets",
-			"apiVersion": "2018-06-01",
-			"properties": {
-				"linkedServiceName": {
-					"referenceName": "AzureSqlDatabase_linked_service",
-					"type": "LinkedServiceReference"
-				},
-				"annotations": [],
-				"type": "AzureSqlTable",
-				"schema": [
-					{
-						"name": "pipeline_name",
-						"type": "varchar"
-					},
-					{
-						"name": "last_watermark",
-						"type": "datetime2",
-						"scale": 7
-					},
-					{
-						"name": "updated_at",
-						"type": "datetime2",
-						"scale": 7
-					}
-				],
-				"typeProperties": {
-					"schema": "dbo",
-					"table": "pipeline_watermark_audit"
-				}
-			},
-			"dependsOn": [
-				"[concat(variables('factoryId'), '/linkedServices/AzureSqlDatabase_linked_service')]"
 			]
 		},
 		{
@@ -319,7 +345,10 @@
 						"typeProperties": {
 							"source": {
 								"type": "MySqlSource",
-								"query": "SELECT MAX(updated_at) AS max_wm\nFROM pharma_sales\nWHERE updated_at > '@{activity('LookupLastWatermark').output.firstRow.last_watermark}'"
+								"query": {
+									"value": "SELECT *\nFROM pharma_sales\nWHERE updated_at > '@{activity('LookupLastWatermark').output.firstRow.last_watermark}'",
+									"type": "Expression"
+								}
 							},
 							"sink": {
 								"type": "ParquetSink",
@@ -356,7 +385,7 @@
 						]
 					},
 					{
-						"name": "GetBatchMaxWatermarkxsedsaq1",
+						"name": "GetBatchMaxWatermark",
 						"type": "Lookup",
 						"dependsOn": [
 							{
@@ -377,7 +406,10 @@
 						"typeProperties": {
 							"source": {
 								"type": "MySqlSource",
-								"query": "SELECT MAX(updated_at) AS max_wm\nFROM pharma_sales\nWHERE updated_at > '@{activity('LookupLastWatermark').output.firstRow.last_watermark}'"
+								"query": {
+									"value": "SELECT MAX(updated_at) AS max_wm\nFROM pharma_sales\nWHERE updated_at > '@{activity('LookupLastWatermark').output.firstRow.last_watermark}'",
+									"type": "Expression"
+								}
 							},
 							"dataset": {
 								"referenceName": "MySqlTable_pharma_sales",
@@ -385,17 +417,119 @@
 								"parameters": {}
 							}
 						}
+					},
+					{
+						"name": "If Condition1",
+						"type": "IfCondition",
+						"dependsOn": [
+							{
+								"activity": "GetBatchMaxWatermark",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"userProperties": [],
+						"typeProperties": {
+							"expression": {
+								"value": "@greater(activity('CopyMySQLToBlobIncremental').output.rowsCopied, 0)",
+								"type": "Expression"
+							},
+							"ifFalseActivities": [
+								{
+									"name": "Set variable1",
+									"type": "SetVariable",
+									"dependsOn": [],
+									"policy": {
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"variableName": "log_message",
+										"value": "\"No new data for this run\""
+									}
+								}
+							],
+							"ifTrueActivities": [
+								{
+									"name": "Databricks notebook",
+									"type": "DatabricksNotebook",
+									"state": "Inactive",
+									"onInactiveMarkAs": "Succeeded",
+									"dependsOn": [],
+									"policy": {
+										"timeout": "0.12:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"notebookPath": "/Users/rinku@ispjooutlook.onmicrosoft.com/pharma_sales_pipeline"
+									},
+									"linkedServiceName": {
+										"referenceName": "AzureDatabricks_linked_service",
+										"type": "LinkedServiceReference"
+									}
+								},
+								{
+									"name": "UpdateWatermark",
+									"type": "Script",
+									"dependsOn": [
+										{
+											"activity": "Databricks notebook",
+											"dependencyConditions": [
+												"Succeeded"
+											]
+										}
+									],
+									"policy": {
+										"timeout": "0.12:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"linkedServiceName": {
+										"referenceName": "AzureSqlDatabase_linked_service",
+										"type": "LinkedServiceReference"
+									},
+									"typeProperties": {
+										"scripts": [
+											{
+												"type": "Query",
+												"text": {
+													"value": "UPDATE pipeline_watermark_audit\nSET last_watermark = '@{activity('GetBatchMaxWatermark').output.firstRow.max_wm}',\n    updated_at = CURRENT_TIMESTAMP\nWHERE pipeline_name = 'pl_pharma_sales_incremental';",
+													"type": "Expression"
+												}
+											}
+										],
+										"scriptBlockExecutionTimeout": "02:00:00"
+									}
+								}
+							]
+						}
 					}
 				],
 				"policy": {
 					"elapsedTimeMetric": {}
+				},
+				"variables": {
+					"log_message": {
+						"type": "String"
+					}
 				},
 				"annotations": []
 			},
 			"dependsOn": [
 				"[concat(variables('factoryId'), '/datasets/ds_azsql_watermark')]",
 				"[concat(variables('factoryId'), '/datasets/MySqlTable_pharma_sales')]",
-				"[concat(variables('factoryId'), '/datasets/Parquet1')]"
+				"[concat(variables('factoryId'), '/datasets/Parquet1')]",
+				"[concat(variables('factoryId'), '/linkedServices/AzureDatabricks_linked_service')]",
+				"[concat(variables('factoryId'), '/linkedServices/AzureSqlDatabase_linked_service')]"
 			]
 		}
 	]
