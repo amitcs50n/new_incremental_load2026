@@ -1,0 +1,15 @@
+{
+	"name": "MySqlTable_pharma_sales",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "MySql1",
+			"type": "LinkedServiceReference"
+		},
+		"annotations": [],
+		"type": "MySqlTable",
+		"schema": [],
+		"typeProperties": {
+			"tableName": "`pharma_sales`"
+		}
+	}
+}

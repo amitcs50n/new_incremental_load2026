@@ -1,0 +1,31 @@
+{
+	"name": "ds_azsql_watermark",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "AzureSqlDatabase_linked_service",
+			"type": "LinkedServiceReference"
+		},
+		"annotations": [],
+		"type": "AzureSqlTable",
+		"schema": [
+			{
+				"name": "pipeline_name",
+				"type": "varchar"
+			},
+			{
+				"name": "last_watermark",
+				"type": "datetime2",
+				"scale": 7
+			},
+			{
+				"name": "updated_at",
+				"type": "datetime2",
+				"scale": 7
+			}
+		],
+		"typeProperties": {
+			"schema": "dbo",
+			"table": "pipeline_watermark_audit"
+		}
+	}
+}

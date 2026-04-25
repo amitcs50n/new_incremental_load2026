@@ -1,0 +1,63 @@
+{
+	"name": "Parquet1",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "AzureDataLakeStorage1",
+			"type": "LinkedServiceReference"
+		},
+		"annotations": [],
+		"type": "Parquet",
+		"typeProperties": {
+			"location": {
+				"type": "AzureBlobFSLocation",
+				"folderPath": "pharma_sales",
+				"fileSystem": "rawdata"
+			},
+			"compressionCodec": "snappy"
+		},
+		"schema": [
+			{
+				"name": "sale_id",
+				"type": "INT32"
+			},
+			{
+				"name": "drug_name",
+				"type": "UTF8"
+			},
+			{
+				"name": "batch_number",
+				"type": "UTF8"
+			},
+			{
+				"name": "manufacturer",
+				"type": "UTF8"
+			},
+			{
+				"name": "quantity",
+				"type": "INT32"
+			},
+			{
+				"name": "price",
+				"type": "DECIMAL",
+				"precision": 38,
+				"scale": 18
+			},
+			{
+				"name": "sale_date",
+				"type": "INT96"
+			},
+			{
+				"name": "created_at",
+				"type": "INT96"
+			},
+			{
+				"name": "updated_at",
+				"type": "INT96"
+			},
+			{
+				"name": "is_deleted",
+				"type": "BOOLEAN"
+			}
+		]
+	}
+}

@@ -3,10 +3,8 @@
 	"properties": {
 		"activities": [
 			{
-				"name": "Copy data1",
-				"type": "Copy",
-				"state": "Inactive",
-				"onInactiveMarkAs": "Succeeded",
+				"name": "LookupLastWatermark",
+				"type": "Lookup",
 				"dependsOn": [],
 				"policy": {
 					"timeout": "0.12:00:00",
@@ -18,8 +16,40 @@
 				"userProperties": [],
 				"typeProperties": {
 					"source": {
+						"type": "AzureSqlSource",
+						"sqlReaderQuery": "SELECT last_watermark\nFROM pipeline_watermark_audit\nWHERE pipeline_name = 'pl_pharma_sales_incremental';",
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"dataset": {
+						"referenceName": "ds_azsql_watermark",
+						"type": "DatasetReference"
+					}
+				}
+			},
+			{
+				"name": "CopyMySQLToBlobIncremental",
+				"type": "Copy",
+				"dependsOn": [
+					{
+						"activity": "LookupLastWatermark",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
 						"type": "MySqlSource",
-						"query": "SELECT * FROM pharma_sales;"
+						"query": "SELECT MAX(updated_at) AS max_wm\nFROM pharma_sales\nWHERE updated_at > '@{activity('LookupLastWatermark').output.firstRow.last_watermark}'"
 					},
 					"sink": {
 						"type": "ParquetSink",
@@ -42,7 +72,7 @@
 				},
 				"inputs": [
 					{
-						"referenceName": "MySqlTable1",
+						"referenceName": "MySqlTable_pharma_sales",
 						"type": "DatasetReference"
 					}
 				],
@@ -54,94 +84,11 @@
 				]
 			},
 			{
-				"name": "LookupLastWatermark",
-				"type": "Lookup",
-				"dependsOn": [],
-				"policy": {
-					"timeout": "0.12:00:00",
-					"retry": 0,
-					"retryIntervalInSeconds": 30,
-					"secureOutput": false,
-					"secureInput": false
-				},
-				"userProperties": [],
-				"typeProperties": {
-					"source": {
-						"type": "MySqlSource",
-						"query": "SELECT last_watermark \nFROM pipeline_watermark_audit \nWHERE pipeline_name = 'pl_pharma_sales_incremental';"
-					},
-					"dataset": {
-						"referenceName": "ds_mysql_watermark",
-						"type": "DatasetReference"
-					}
-				}
-			},
-			{
-				"name": "incremental load to ADLS",
-				"type": "Copy",
-				"dependsOn": [
-					{
-						"activity": "LookupLastWatermark",
-						"dependencyConditions": [
-							"Succeeded"
-						]
-					}
-				],
-				"policy": {
-					"timeout": "0.12:00:00",
-					"retry": 0,
-					"retryIntervalInSeconds": 30,
-					"secureOutput": false,
-					"secureInput": false
-				},
-				"userProperties": [],
-				"typeProperties": {
-					"source": {
-						"type": "MySqlSource",
-						"query": {
-							"value": "SELECT *\nFROM pharma_sales\nWHERE updated_at > '@{activity('LookupLastWatermark').output.firstRow.last_watermark}'",
-							"type": "Expression"
-						}
-					},
-					"sink": {
-						"type": "ParquetSink",
-						"storeSettings": {
-							"type": "AzureBlobFSWriteSettings",
-							"copyBehavior": "FlattenHierarchy"
-						},
-						"formatSettings": {
-							"type": "ParquetWriteSettings"
-						}
-					},
-					"enableStaging": false,
-					"translator": {
-						"type": "TabularTranslator",
-						"typeConversion": true,
-						"typeConversionSettings": {
-							"allowDataTruncation": true,
-							"treatBooleanAsNumber": false
-						}
-					}
-				},
-				"inputs": [
-					{
-						"referenceName": "MySqlTable1",
-						"type": "DatasetReference"
-					}
-				],
-				"outputs": [
-					{
-						"referenceName": "ds_adls_pharma_sales_parquet",
-						"type": "DatasetReference"
-					}
-				]
-			},
-			{
-				"name": "GetBatchMaxWatermark",
+				"name": "GetBatchMaxWatermarkxsedsaq1",
 				"type": "Lookup",
 				"dependsOn": [
 					{
-						"activity": "incremental load to ADLS",
+						"activity": "CopyMySQLToBlobIncremental",
 						"dependencyConditions": [
 							"Succeeded"
 						]
@@ -158,36 +105,13 @@
 				"typeProperties": {
 					"source": {
 						"type": "MySqlSource",
-						"query": {
-							"value": "SELECT MAX(updated_at) AS max_wm\nFROM pharma_sales\nWHERE updated_at > '@{activity('LookupLastWatermark').output.firstRow.last_watermark}'",
-							"type": "Expression"
-						}
+						"query": "SELECT MAX(updated_at) AS max_wm\nFROM pharma_sales\nWHERE updated_at > '@{activity('LookupLastWatermark').output.firstRow.last_watermark}'"
 					},
 					"dataset": {
-						"referenceName": "MySqlTable1",
+						"referenceName": "MySqlTable_pharma_sales",
 						"type": "DatasetReference"
 					}
 				}
-			},
-			{
-				"name": "Notebook1",
-				"type": "DatabricksNotebook",
-				"dependsOn": [
-					{
-						"activity": "GetBatchMaxWatermark",
-						"dependencyConditions": [
-							"Succeeded"
-						]
-					}
-				],
-				"policy": {
-					"timeout": "0.12:00:00",
-					"retry": 0,
-					"retryIntervalInSeconds": 30,
-					"secureOutput": false,
-					"secureInput": false
-				},
-				"userProperties": []
 			}
 		],
 		"annotations": []
