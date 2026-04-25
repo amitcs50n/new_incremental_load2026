@@ -49,7 +49,10 @@
 				"typeProperties": {
 					"source": {
 						"type": "MySqlSource",
-						"query": "SELECT MAX(updated_at) AS max_wm\nFROM pharma_sales\nWHERE updated_at > '@{activity('LookupLastWatermark').output.firstRow.last_watermark}'"
+						"query": {
+							"value": "SELECT *\nFROM pharma_sales\nWHERE updated_at > '@{activity('LookupLastWatermark').output.firstRow.last_watermark}'",
+							"type": "Expression"
+						}
 					},
 					"sink": {
 						"type": "ParquetSink",
@@ -84,7 +87,7 @@
 				]
 			},
 			{
-				"name": "GetBatchMaxWatermarkxsedsaq1",
+				"name": "GetBatchMaxWatermark",
 				"type": "Lookup",
 				"dependsOn": [
 					{
@@ -112,8 +115,108 @@
 						"type": "DatasetReference"
 					}
 				}
+			},
+			{
+				"name": "If Condition1",
+				"type": "IfCondition",
+				"dependsOn": [
+					{
+						"activity": "GetBatchMaxWatermark",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"expression": {
+						"value": "@greater(activity('CopyMySQLToBlobIncremental').output.rowsCopied, 0)",
+						"type": "Expression"
+					},
+					"ifFalseActivities": [
+						{
+							"name": "Set variable1",
+							"type": "SetVariable",
+							"dependsOn": [],
+							"policy": {
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "log_message",
+								"value": "\"No new data for this run\""
+							}
+						}
+					],
+					"ifTrueActivities": [
+						{
+							"name": "Databricks notebook",
+							"type": "DatabricksNotebook",
+							"state": "Inactive",
+							"onInactiveMarkAs": "Succeeded",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"notebookPath": "/Users/rinku@ispjooutlook.onmicrosoft.com/pharma_sales_pipeline"
+							},
+							"linkedServiceName": {
+								"referenceName": "AzureDatabricks_linked_service",
+								"type": "LinkedServiceReference"
+							}
+						},
+						{
+							"name": "UpdateWatermark",
+							"type": "Script",
+							"dependsOn": [
+								{
+									"activity": "Databricks notebook",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"linkedServiceName": {
+								"referenceName": "AzureSqlDatabase_linked_service",
+								"type": "LinkedServiceReference"
+							},
+							"typeProperties": {
+								"scripts": [
+									{
+										"type": "Query",
+										"text": {
+											"value": "UPDATE pipeline_watermark_audit\nSET last_watermark = '@{activity('GetBatchMaxWatermark').output.firstRow.max_wm}',\n    updated_at = CURRENT_TIMESTAMP\nWHERE pipeline_name = 'pl_pharma_sales_incremental';",
+											"type": "Expression"
+										}
+									}
+								],
+								"scriptBlockExecutionTimeout": "02:00:00"
+							}
+						}
+					]
+				}
 			}
 		],
+		"variables": {
+			"log_message": {
+				"type": "String"
+			}
+		},
 		"annotations": []
 	}
 }
