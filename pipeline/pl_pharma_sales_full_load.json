@@ -98,7 +98,10 @@
 				"typeProperties": {
 					"source": {
 						"type": "MySqlSource",
-						"query": "SELECT *\nFROM pharma_sales\nWHERE updated_at > '@{activity('LookupLastWatermark').output.firstRow.last_watermark}'"
+						"query": {
+							"value": "SELECT *\nFROM pharma_sales\nWHERE updated_at > '@{activity('LookupLastWatermark').output.firstRow.last_watermark}'",
+							"type": "Expression"
+						}
 					},
 					"sink": {
 						"type": "ParquetSink",
@@ -134,8 +137,8 @@
 				]
 			},
 			{
-				"name": "update watermark",
-				"type": "Copy",
+				"name": "GetBatchMaxWatermark",
+				"type": "Lookup",
 				"dependsOn": [
 					{
 						"activity": "incremental load to ADLS",
@@ -155,39 +158,36 @@
 				"typeProperties": {
 					"source": {
 						"type": "MySqlSource",
-						"query": "UPDATE pipeline_watermark_audit\nSET last_watermark = (\n    SELECT MAX(updated_at) FROM pharma_sales\n)\nWHERE pipeline_name = 'pl_pharma_sales_incremental';"
-					},
-					"sink": {
-						"type": "ParquetSink",
-						"storeSettings": {
-							"type": "AzureBlobFSWriteSettings"
-						},
-						"formatSettings": {
-							"type": "ParquetWriteSettings"
+						"query": {
+							"value": "SELECT MAX(updated_at) AS max_wm\nFROM pharma_sales\nWHERE updated_at > '@{activity('LookupLastWatermark').output.firstRow.last_watermark}'",
+							"type": "Expression"
 						}
 					},
-					"enableStaging": false,
-					"translator": {
-						"type": "TabularTranslator",
-						"typeConversion": true,
-						"typeConversionSettings": {
-							"allowDataTruncation": true,
-							"treatBooleanAsNumber": false
-						}
-					}
-				},
-				"inputs": [
-					{
+					"dataset": {
 						"referenceName": "MySqlTable1",
 						"type": "DatasetReference"
 					}
-				],
-				"outputs": [
+				}
+			},
+			{
+				"name": "Notebook1",
+				"type": "DatabricksNotebook",
+				"dependsOn": [
 					{
-						"referenceName": "Parquet1",
-						"type": "DatasetReference"
+						"activity": "GetBatchMaxWatermark",
+						"dependencyConditions": [
+							"Succeeded"
+						]
 					}
-				]
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": []
 			}
 		],
 		"annotations": []
