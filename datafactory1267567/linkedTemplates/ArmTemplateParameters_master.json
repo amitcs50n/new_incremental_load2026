@@ -8,6 +8,9 @@
 		"MySql1_password": {
 			"value": ""
 		},
+		"AzureSqlDatabase_linked_service_password": {
+			"value": ""
+		},
 		"AzureDataLakeStorage1_properties_typeProperties_url": {
 			"value": "https://storageaccount12344325.dfs.core.windows.net/"
 		},
@@ -19,6 +22,15 @@
 		},
 		"MySql1_properties_typeProperties_username": {
 			"value": "root"
+		},
+		"AzureSqlDatabase_linked_service_properties_typeProperties_server": {
+			"value": "dbserver1235456.database.windows.net"
+		},
+		"AzureSqlDatabase_linked_service_properties_typeProperties_database": {
+			"value": "amitdb"
+		},
+		"AzureSqlDatabase_linked_service_properties_typeProperties_userName": {
+			"value": "sqladmin"
 		},
 		"containerUri": {
 			"value": ""

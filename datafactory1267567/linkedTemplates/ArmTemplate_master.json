@@ -11,6 +11,10 @@
 			"type": "secureString",
 			"metadata": "Secure string for 'password' of 'MySql1'"
 		},
+		"AzureSqlDatabase_linked_service_password": {
+			"type": "secureString",
+			"metadata": "Secure string for 'password' of 'AzureSqlDatabase_linked_service'"
+		},
 		"AzureDataLakeStorage1_properties_typeProperties_url": {
 			"type": "string",
 			"defaultValue": "https://storageaccount12344325.dfs.core.windows.net/"
@@ -26,6 +30,18 @@
 		"MySql1_properties_typeProperties_username": {
 			"type": "string",
 			"defaultValue": "root"
+		},
+		"AzureSqlDatabase_linked_service_properties_typeProperties_server": {
+			"type": "string",
+			"defaultValue": "dbserver1235456.database.windows.net"
+		},
+		"AzureSqlDatabase_linked_service_properties_typeProperties_database": {
+			"type": "string",
+			"defaultValue": "amitdb"
+		},
+		"AzureSqlDatabase_linked_service_properties_typeProperties_userName": {
+			"type": "string",
+			"defaultValue": "sqladmin"
 		},
 		"containerUri": {
 			"type": "string",
@@ -54,8 +70,20 @@
 					"factoryName": {
 						"value": "[parameters('factoryName')]"
 					},
+					"AzureSqlDatabase_linked_service_password": {
+						"value": "[parameters('AzureSqlDatabase_linked_service_password')]"
+					},
 					"MySql1_password": {
 						"value": "[parameters('MySql1_password')]"
+					},
+					"AzureSqlDatabase_linked_service_properties_typeProperties_server": {
+						"value": "[parameters('AzureSqlDatabase_linked_service_properties_typeProperties_server')]"
+					},
+					"AzureSqlDatabase_linked_service_properties_typeProperties_database": {
+						"value": "[parameters('AzureSqlDatabase_linked_service_properties_typeProperties_database')]"
+					},
+					"AzureSqlDatabase_linked_service_properties_typeProperties_userName": {
+						"value": "[parameters('AzureSqlDatabase_linked_service_properties_typeProperties_userName')]"
 					},
 					"AzureDataLakeStorage1_properties_typeProperties_url": {
 						"value": "[parameters('AzureDataLakeStorage1_properties_typeProperties_url')]"
