@@ -57,7 +57,8 @@
 					"sink": {
 						"type": "ParquetSink",
 						"storeSettings": {
-							"type": "AzureBlobFSWriteSettings"
+							"type": "AzureBlobFSWriteSettings",
+							"copyBehavior": "FlattenHierarchy"
 						},
 						"formatSettings": {
 							"type": "ParquetWriteSettings"
@@ -108,7 +109,10 @@
 				"typeProperties": {
 					"source": {
 						"type": "MySqlSource",
-						"query": "SELECT MAX(updated_at) AS max_wm\nFROM pharma_sales\nWHERE updated_at > '@{activity('LookupLastWatermark').output.firstRow.last_watermark}'"
+						"query": {
+							"value": "SELECT MAX(updated_at) AS max_wm\nFROM pharma_sales\nWHERE updated_at > '@{activity('LookupLastWatermark').output.firstRow.last_watermark}'",
+							"type": "Expression"
+						}
 					},
 					"dataset": {
 						"referenceName": "MySqlTable_pharma_sales",
