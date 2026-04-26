@@ -1,5 +1,5 @@
 {
-	"name": "pl_pharma_sales_full_load",
+	"name": "pl_pharma_sales_incremental",
 	"properties": {
 		"activities": [
 			{
@@ -157,8 +157,6 @@
 						{
 							"name": "Databricks notebook",
 							"type": "DatabricksNotebook",
-							"state": "Inactive",
-							"onInactiveMarkAs": "Succeeded",
 							"dependsOn": [],
 							"policy": {
 								"timeout": "0.12:00:00",
