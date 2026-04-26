@@ -292,7 +292,7 @@
 			]
 		},
 		{
-			"name": "[concat(parameters('factoryName'), '/pl_pharma_sales_full_load')]",
+			"name": "[concat(parameters('factoryName'), '/pl_pharma_sales_incremental')]",
 			"type": "Microsoft.DataFactory/factories/pipelines",
 			"apiVersion": "2018-06-01",
 			"properties": {
@@ -456,8 +456,6 @@
 								{
 									"name": "Databricks notebook",
 									"type": "DatabricksNotebook",
-									"state": "Inactive",
-									"onInactiveMarkAs": "Succeeded",
 									"dependsOn": [],
 									"policy": {
 										"timeout": "0.12:00:00",
