@@ -1,1 +1,179 @@
 
+print(dbutils.secrets.listScopes())
+
+print(dbutils.secrets.list("snowflake"))
+
+
+
+
+sf_options = {
+    "sfUrl"     : dbutils.secrets.get("snowflake", "sf-url"),
+    "sfUser"    : dbutils.secrets.get("snowflake", "sf-user"),
+    "sfPassword": dbutils.secrets.get("snowflake", "sf-password"),
+    "sfDatabase": "DB",
+    "sfSchema"  : "PUBLIC",
+    "sfWarehouse": "COMPUTE_WH",
+    "sfRole"    : "ACCOUNTADMIN"
+}
+
+try:
+    test_df = spark.read \
+        .format("net.snowflake.spark.snowflake") \
+        .options(**sf_options) \
+        .option("query", "SELECT CURRENT_USER(), CURRENT_DATABASE()") \
+        .load()
+    test_df.show()
+    print("✅ Connected successfully")
+except Exception as e:
+    print(f"❌ Connection failed: {e}")
+
+
+
+
+
+from datetime import datetime
+
+spark.conf.set(
+  "fs.azure.account.key.storageaccount12344325.dfs.core.windows.net",
+  dbutils.secrets.get("snowflake", "storage-account-key")   # ✅
+)
+print("✅ Storage config loaded")
+
+today = datetime.now()
+partition_path = (
+    f"abfss://rawdata@storageaccount12344325.dfs.core.windows.net/pharma_sales/"
+    f"year={today.year}/month={today.month:02d}/day={today.day:02d}/"
+)
+
+# OR
+# partition_path = (
+#     f"abfss://rawdata@storageaccount12344325.dfs.core.windows.net/"
+#     f"pharma_sales/"
+#     f"year={today.year}/"
+#     f"month={today.month:02d}/"
+#     f"day={today.day:02d}/"
+# )
+
+df = spark.read.parquet(partition_path)
+print(f"✅ Rows read: {df.count()}")
+display(df)
+
+
+
+df.write \
+    .format("net.snowflake.spark.snowflake") \
+    .options(**sf_options) \
+    .option("dbtable", "STG_PHARMA_SALES") \
+    .mode("overwrite") \
+    .save()
+
+# append = incremental load
+print("Data written successfully!")
+
+
+
+
+merge_sql = """
+MERGE INTO PHARMA_SALES T
+USING (
+    SELECT
+        sale_id, drug_name, batch_number, manufacturer, quantity, price,
+        sale_date, created_at, updated_at, is_deleted
+    FROM STG_PHARMA_SALES
+    QUALIFY ROW_NUMBER() OVER (
+        PARTITION BY sale_id
+        ORDER BY updated_at DESC, created_at DESC
+    ) = 1
+) S
+ON T.sale_id = S.sale_id
+
+-- Soft delete
+WHEN MATCHED
+    AND S.is_deleted = TRUE
+    AND T.is_deleted = FALSE
+THEN UPDATE SET
+    T.is_deleted = TRUE,
+    T.updated_at = S.updated_at
+
+-- Update newer records only
+WHEN MATCHED
+    AND S.updated_at > T.updated_at
+    AND S.is_deleted = FALSE
+THEN UPDATE SET
+    T.drug_name    = S.drug_name,
+    T.batch_number = S.batch_number,
+    T.manufacturer = S.manufacturer,
+    T.quantity     = S.quantity,
+    T.price        = S.price,
+    T.sale_date    = S.sale_date,
+    T.created_at   = S.created_at,
+    T.updated_at   = S.updated_at,
+    T.is_deleted   = S.is_deleted
+
+-- Insert new non-deleted records
+WHEN NOT MATCHED
+    AND S.is_deleted = FALSE
+THEN INSERT (
+    sale_id, drug_name, batch_number, manufacturer,
+    quantity, price, sale_date, created_at, updated_at, is_deleted
+)
+VALUES (
+    S.sale_id, S.drug_name, S.batch_number, S.manufacturer,
+    S.quantity, S.price, S.sale_date, S.created_at, S.updated_at, S.is_deleted
+)
+"""
+
+
+
+# ============================================================
+# CELL 3 — Execute MERGE via Snowflake connector
+# ============================================================
+import snowflake.connector
+
+def run_snowflake_merge():
+    conn = None
+    try:
+        conn = snowflake.connector.connect(
+            user     = dbutils.secrets.get("snowflake", "sf-user"),
+            password = dbutils.secrets.get("snowflake", "sf-password"),
+            account  = dbutils.secrets.get("snowflake", "sf-account"),
+            database = "DB",
+            schema   = "PUBLIC",
+            warehouse= "COMPUTE_WH",
+            role     = "ACCOUNTADMIN"
+        )
+
+        cursor = conn.cursor()
+
+        # ✅ Validate staging table is not empty before MERGE
+        cursor.execute("SELECT COUNT(*) FROM STG_PHARMA_SALES")
+        stg_count = cursor.fetchone()[0]
+
+        if stg_count == 0:
+            print("⚠️ Staging table is empty — skipping MERGE")
+            return
+
+        print(f"✅ Staging row count: {stg_count} — proceeding with MERGE")
+
+        # ✅ Run MERGE
+        cursor.execute(merge_sql)
+        
+        # ✅ Capture MERGE results
+        result = cursor.fetchone()
+        print(f"✅ MERGE complete → Rows inserted: {result[0]}, Rows updated: {result[1]}")
+
+    except snowflake.connector.errors.ProgrammingError as e:
+        print(f"❌ Snowflake SQL Error: {e}")
+        raise  # Re-raise so ADF marks the job as FAILED
+
+    except Exception as e:
+        print(f"❌ Unexpected error: {e}")
+        raise
+
+    finally:
+        if conn:
+            conn.close()
+            print("🔒 Snowflake connection closed")
+
+# Run it
+run_snowflake_merge()
