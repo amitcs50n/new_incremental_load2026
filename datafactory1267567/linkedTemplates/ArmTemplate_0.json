@@ -237,6 +237,10 @@
 				"typeProperties": {
 					"location": {
 						"type": "AzureBlobFSLocation",
+						"fileName": {
+							"value": "@concat(\n  'year=', formatDateTime(utcNow(), 'yyyy'),\n  '/month=', formatDateTime(utcNow(), 'MM'),\n  '/day=', formatDateTime(utcNow(), 'dd'),\n  '/data.parquet'\n)\n",
+							"type": "Expression"
+						},
 						"folderPath": "pharma_sales",
 						"fileSystem": "rawdata"
 					},
