@@ -470,7 +470,7 @@
 									},
 									"userProperties": [],
 									"typeProperties": {
-										"notebookPath": "/Users/rinku@ispjooutlook.onmicrosoft.com/pharma_sales_pipeline"
+										"notebookPath": "/Users/rinku@ispjooutlook.onmicrosoft.com/new_incremental_load2026/databricks/pharma_sales_pipeline"
 									},
 									"linkedServiceName": {
 										"referenceName": "AzureDatabricks_linked_service",
