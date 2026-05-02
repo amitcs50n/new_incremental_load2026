@@ -7,10 +7,6 @@
 			"metadata": "Data Factory name",
 			"defaultValue": "datafactory1267567"
 		},
-		"AzureDatabricks_linked_service_accessToken": {
-			"type": "secureString",
-			"metadata": "Secure string for 'accessToken' of 'AzureDatabricks_linked_service'"
-		},
 		"AzureSqlDatabase_linked_service_password": {
 			"type": "secureString",
 			"metadata": "Secure string for 'password' of 'AzureSqlDatabase_linked_service'"
@@ -25,7 +21,7 @@
 		},
 		"AzureDatabricks_linked_service_properties_typeProperties_existingClusterId": {
 			"type": "string",
-			"defaultValue": "0425-144312-tzspgoez"
+			"defaultValue": "0502-145348-409d2rh7"
 		},
 		"AzureSqlDatabase_linked_service_properties_typeProperties_server": {
 			"type": "string",
@@ -50,6 +46,10 @@
 		"MySql1_properties_typeProperties_username": {
 			"type": "string",
 			"defaultValue": "root"
+		},
+		"AzureKeyVault1_properties_typeProperties_baseUrl": {
+			"type": "string",
+			"defaultValue": "https://kv-pharma-pipeline.vault.azure.net/"
 		}
 	},
 	"variables": {
@@ -451,15 +451,20 @@
 				"annotations": [],
 				"type": "AzureDatabricks",
 				"typeProperties": {
-					"domain": "https://adb-7405612611467800.0.azuredatabricks.net",
-					"accessToken": {
-						"type": "SecureString",
-						"value": "[parameters('AzureDatabricks_linked_service_accessToken')]"
+					"domain": "https://adb-7405612517124943.3.azuredatabricks.net",
+					"authentication": "MSI",
+					"workspaceResourceId": "/subscriptions/4de5e007-e4c4-4e2b-bb58-efa8aa3a8785/resourceGroups/WIF-RG/providers/Microsoft.Databricks/workspaces/databricks1326578",
+					"credential": {
+						"referenceName": "credential1",
+						"type": "CredentialReference"
 					},
 					"existingClusterId": "[parameters('AzureDatabricks_linked_service_properties_typeProperties_existingClusterId')]"
 				}
 			},
-			"dependsOn": []
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/credentials/credential1')]",
+				"[concat(variables('factoryId'), '/linkedServices/AzureKeyVault1')]"
+			]
 		},
 		{
 			"name": "[concat(parameters('factoryName'), '/AzureSqlDatabase_linked_service')]",
@@ -534,6 +539,25 @@
 				}
 			},
 			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/AzureKeyVault1')]",
+			"type": "Microsoft.DataFactory/factories/linkedServices",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"annotations": [],
+				"type": "AzureKeyVault",
+				"typeProperties": {
+					"baseUrl": "[parameters('AzureKeyVault1_properties_typeProperties_baseUrl')]",
+					"credential": {
+						"referenceName": "credential1",
+						"type": "CredentialReference"
+					}
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/credentials/credential1')]"
+			]
 		}
 	]
 }

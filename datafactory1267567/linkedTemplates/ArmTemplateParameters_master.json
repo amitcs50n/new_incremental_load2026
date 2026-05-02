@@ -5,9 +5,6 @@
 		"factoryName": {
 			"value": "datafactory1267567"
 		},
-		"AzureDatabricks_linked_service_accessToken": {
-			"value": ""
-		},
 		"AzureSqlDatabase_linked_service_password": {
 			"value": ""
 		},
@@ -18,7 +15,7 @@
 			"value": "https://storageaccount12344325.dfs.core.windows.net/"
 		},
 		"AzureDatabricks_linked_service_properties_typeProperties_existingClusterId": {
-			"value": "0425-144312-tzspgoez"
+			"value": "0502-145348-409d2rh7"
 		},
 		"AzureSqlDatabase_linked_service_properties_typeProperties_server": {
 			"value": "dbserver1235456.database.windows.net"
@@ -37,6 +34,9 @@
 		},
 		"MySql1_properties_typeProperties_username": {
 			"value": "root"
+		},
+		"AzureKeyVault1_properties_typeProperties_baseUrl": {
+			"value": "https://kv-pharma-pipeline.vault.azure.net/"
 		},
 		"containerUri": {
 			"value": ""

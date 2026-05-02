@@ -7,10 +7,6 @@
 			"metadata": "Data Factory name",
 			"defaultValue": "datafactory1267567"
 		},
-		"AzureDatabricks_linked_service_accessToken": {
-			"type": "secureString",
-			"metadata": "Secure string for 'accessToken' of 'AzureDatabricks_linked_service'"
-		},
 		"AzureSqlDatabase_linked_service_password": {
 			"type": "secureString",
 			"metadata": "Secure string for 'password' of 'AzureSqlDatabase_linked_service'"
@@ -25,7 +21,7 @@
 		},
 		"AzureDatabricks_linked_service_properties_typeProperties_existingClusterId": {
 			"type": "string",
-			"defaultValue": "0425-144312-tzspgoez"
+			"defaultValue": "0502-145348-409d2rh7"
 		},
 		"AzureSqlDatabase_linked_service_properties_typeProperties_server": {
 			"type": "string",
@@ -50,6 +46,10 @@
 		"MySql1_properties_typeProperties_username": {
 			"type": "string",
 			"defaultValue": "root"
+		},
+		"AzureKeyVault1_properties_typeProperties_baseUrl": {
+			"type": "string",
+			"defaultValue": "https://kv-pharma-pipeline.vault.azure.net/"
 		},
 		"containerUri": {
 			"type": "string",
@@ -78,17 +78,11 @@
 					"factoryName": {
 						"value": "[parameters('factoryName')]"
 					},
-					"AzureDatabricks_linked_service_accessToken": {
-						"value": "[parameters('AzureDatabricks_linked_service_accessToken')]"
-					},
 					"AzureSqlDatabase_linked_service_password": {
 						"value": "[parameters('AzureSqlDatabase_linked_service_password')]"
 					},
 					"MySql1_password": {
 						"value": "[parameters('MySql1_password')]"
-					},
-					"AzureDatabricks_linked_service_properties_typeProperties_existingClusterId": {
-						"value": "[parameters('AzureDatabricks_linked_service_properties_typeProperties_existingClusterId')]"
 					},
 					"AzureSqlDatabase_linked_service_properties_typeProperties_server": {
 						"value": "[parameters('AzureSqlDatabase_linked_service_properties_typeProperties_server')]"
@@ -110,6 +104,12 @@
 					},
 					"MySql1_properties_typeProperties_username": {
 						"value": "[parameters('MySql1_properties_typeProperties_username')]"
+					},
+					"AzureKeyVault1_properties_typeProperties_baseUrl": {
+						"value": "[parameters('AzureKeyVault1_properties_typeProperties_baseUrl')]"
+					},
+					"AzureDatabricks_linked_service_properties_typeProperties_existingClusterId": {
+						"value": "[parameters('AzureDatabricks_linked_service_properties_typeProperties_existingClusterId')]"
 					}
 				}
 			},
