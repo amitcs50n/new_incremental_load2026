@@ -1,15 +1,23 @@
 {
-	"name": "MySqlTable_pharma_sales",
+	"name": "ds_mysql_generic",
 	"properties": {
 		"linkedServiceName": {
 			"referenceName": "MySql1",
 			"type": "LinkedServiceReference"
 		},
+		"parameters": {
+			"tableName": {
+				"type": "string"
+			}
+		},
 		"annotations": [],
 		"type": "MySqlTable",
 		"schema": [],
 		"typeProperties": {
-			"tableName": "`pharma_sales`"
+			"tableName": {
+				"value": "@dataset().tableName",
+				"type": "Expression"
+			}
 		}
 	}
 }

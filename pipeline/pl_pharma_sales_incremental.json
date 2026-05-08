@@ -76,7 +76,7 @@
 				},
 				"inputs": [
 					{
-						"referenceName": "MySqlTable_pharma_sales",
+						"referenceName": "ds_mysql_generic",
 						"type": "DatasetReference"
 					}
 				],
@@ -115,7 +115,7 @@
 						}
 					},
 					"dataset": {
-						"referenceName": "MySqlTable_pharma_sales",
+						"referenceName": "ds_mysql_generic",
 						"type": "DatasetReference"
 					}
 				}
