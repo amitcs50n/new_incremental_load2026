@@ -23,6 +23,10 @@
 			"type": "string",
 			"defaultValue": "0502-145348-409d2rh7"
 		},
+		"AzureKeyVault1_properties_typeProperties_baseUrl": {
+			"type": "string",
+			"defaultValue": "https://kv-pharma-pipeline.vault.azure.net/"
+		},
 		"AzureSqlDatabase_linked_service_properties_typeProperties_server": {
 			"type": "string",
 			"defaultValue": "dbserver1235456.database.windows.net"
@@ -41,15 +45,11 @@
 		},
 		"MySql1_properties_typeProperties_database": {
 			"type": "string",
-			"defaultValue": "amit_db"
+			"defaultValue": "pharma"
 		},
 		"MySql1_properties_typeProperties_username": {
 			"type": "string",
 			"defaultValue": "root"
-		},
-		"AzureKeyVault1_properties_typeProperties_baseUrl": {
-			"type": "string",
-			"defaultValue": "https://kv-pharma-pipeline.vault.azure.net/"
 		}
 	},
 	"variables": {
@@ -63,7 +63,7 @@
 			"properties": {
 				"activities": [
 					{
-						"name": "LookupLastWatermark",
+						"name": "GetActiveConfigs",
 						"type": "Lookup",
 						"dependsOn": [],
 						"policy": {
@@ -77,7 +77,7 @@
 						"typeProperties": {
 							"source": {
 								"type": "AzureSqlSource",
-								"sqlReaderQuery": "SELECT last_watermark\nFROM pipeline_watermark_audit\nWHERE pipeline_name = 'pl_pharma_sales_incremental';",
+								"sqlReaderQuery": "SELECT source_table, target_folder, watermark_column, last_watermark, merge_type, primary_key_col\n       FROM pipeline_watermark_audit\n       WHERE is_active = 1",
 								"queryTimeout": "02:00:00",
 								"partitionOption": "None"
 							},
@@ -85,111 +85,16 @@
 								"referenceName": "ds_azsql_watermark",
 								"type": "DatasetReference",
 								"parameters": {}
-							}
+							},
+							"firstRowOnly": false
 						}
 					},
 					{
-						"name": "CopyMySQLToBlobIncremental",
-						"type": "Copy",
+						"name": "ForEachTable",
+						"type": "ForEach",
 						"dependsOn": [
 							{
-								"activity": "LookupLastWatermark",
-								"dependencyConditions": [
-									"Succeeded"
-								]
-							}
-						],
-						"policy": {
-							"timeout": "0.12:00:00",
-							"retry": 0,
-							"retryIntervalInSeconds": 30,
-							"secureOutput": false,
-							"secureInput": false
-						},
-						"userProperties": [],
-						"typeProperties": {
-							"source": {
-								"type": "MySqlSource",
-								"query": {
-									"value": "SELECT *\nFROM pharma_sales\nWHERE updated_at > '@{activity('LookupLastWatermark').output.firstRow.last_watermark}'",
-									"type": "Expression"
-								}
-							},
-							"sink": {
-								"type": "ParquetSink",
-								"storeSettings": {
-									"type": "AzureBlobFSWriteSettings",
-									"copyBehavior": "FlattenHierarchy"
-								},
-								"formatSettings": {
-									"type": "ParquetWriteSettings"
-								}
-							},
-							"enableStaging": false,
-							"translator": {
-								"type": "TabularTranslator",
-								"typeConversion": true,
-								"typeConversionSettings": {
-									"allowDataTruncation": true,
-									"treatBooleanAsNumber": false
-								}
-							}
-						},
-						"inputs": [
-							{
-								"referenceName": "MySqlTable_pharma_sales",
-								"type": "DatasetReference",
-								"parameters": {}
-							}
-						],
-						"outputs": [
-							{
-								"referenceName": "Parquet1",
-								"type": "DatasetReference",
-								"parameters": {}
-							}
-						]
-					},
-					{
-						"name": "GetBatchMaxWatermark",
-						"type": "Lookup",
-						"dependsOn": [
-							{
-								"activity": "CopyMySQLToBlobIncremental",
-								"dependencyConditions": [
-									"Succeeded"
-								]
-							}
-						],
-						"policy": {
-							"timeout": "0.12:00:00",
-							"retry": 0,
-							"retryIntervalInSeconds": 30,
-							"secureOutput": false,
-							"secureInput": false
-						},
-						"userProperties": [],
-						"typeProperties": {
-							"source": {
-								"type": "MySqlSource",
-								"query": {
-									"value": "SELECT MAX(updated_at) AS max_wm\nFROM pharma_sales\nWHERE updated_at > '@{activity('LookupLastWatermark').output.firstRow.last_watermark}'",
-									"type": "Expression"
-								}
-							},
-							"dataset": {
-								"referenceName": "MySqlTable_pharma_sales",
-								"type": "DatasetReference",
-								"parameters": {}
-							}
-						}
-					},
-					{
-						"name": "If Condition1",
-						"type": "IfCondition",
-						"dependsOn": [
-							{
-								"activity": "GetBatchMaxWatermark",
+								"activity": "GetActiveConfigs",
 								"dependencyConditions": [
 									"Succeeded"
 								]
@@ -197,30 +102,15 @@
 						],
 						"userProperties": [],
 						"typeProperties": {
-							"expression": {
-								"value": "@greater(activity('CopyMySQLToBlobIncremental').output.rowsCopied, 0)",
+							"items": {
+								"value": "@activity('GetActiveConfigs').output.value",
 								"type": "Expression"
 							},
-							"ifFalseActivities": [
+							"isSequential": true,
+							"activities": [
 								{
-									"name": "Set variable1",
-									"type": "SetVariable",
-									"dependsOn": [],
-									"policy": {
-										"secureOutput": false,
-										"secureInput": false
-									},
-									"userProperties": [],
-									"typeProperties": {
-										"variableName": "log_message",
-										"value": "\"No new data for this run\""
-									}
-								}
-							],
-							"ifTrueActivities": [
-								{
-									"name": "Databricks notebook",
-									"type": "DatabricksNotebook",
+									"name": "CopyMySQLToADLS",
+									"type": "Copy",
 									"dependsOn": [],
 									"policy": {
 										"timeout": "0.12:00:00",
@@ -231,19 +121,64 @@
 									},
 									"userProperties": [],
 									"typeProperties": {
-										"notebookPath": "/Users/rinku@ispjooutlook.onmicrosoft.com/new_incremental_load2026/databricks/pharma_sales_pipeline"
+										"source": {
+											"type": "MySqlSource",
+											"query": "SELECT * FROM @{item().source_table} WHERE @{item().watermark_column} > '@{item().last_watermark}'"
+										},
+										"sink": {
+											"type": "ParquetSink",
+											"storeSettings": {
+												"type": "AzureBlobFSWriteSettings"
+											},
+											"formatSettings": {
+												"type": "ParquetWriteSettings"
+											}
+										},
+										"enableStaging": false,
+										"translator": {
+											"type": "TabularTranslator",
+											"typeConversion": true,
+											"typeConversionSettings": {
+												"allowDataTruncation": true,
+												"treatBooleanAsNumber": false
+											}
+										}
 									},
-									"linkedServiceName": {
-										"referenceName": "AzureDatabricks_linked_service",
-										"type": "LinkedServiceReference"
-									}
+									"inputs": [
+										{
+											"referenceName": "ds_mysql_generic",
+											"type": "DatasetReference",
+											"parameters": {
+												"tableName": {
+													"value": "@item().source_table",
+													"type": "Expression"
+												}
+											}
+										}
+									],
+									"outputs": [
+										{
+											"referenceName": "ds_adls_generic",
+											"type": "DatasetReference",
+											"parameters": {
+												"folderPath": {
+													"value": "@concat(item().target_folder, '/year=', formatDateTime(utcnow(), 'yyyy'), '/month=', formatDateTime(utcnow(), 'MM'), '/day=', formatDateTime(utcnow(), 'dd'))",
+													"type": "Expression"
+												},
+												"fileName": {
+													"value": "@concat(item().source_table, '_', formatDateTime(utcnow(), 'yyyyMMddHHmmss'), '.parquet')",
+													"type": "Expression"
+												}
+											}
+										}
+									]
 								},
 								{
-									"name": "UpdateWatermark",
-									"type": "Script",
+									"name": "GetMaxFromCopiedData",
+									"type": "Lookup",
 									"dependsOn": [
 										{
-											"activity": "Databricks notebook",
+											"activity": "CopyMySQLToADLS",
 											"dependencyConditions": [
 												"Succeeded"
 											]
@@ -257,21 +192,81 @@
 										"secureInput": false
 									},
 									"userProperties": [],
-									"linkedServiceName": {
-										"referenceName": "AzureSqlDatabase_linked_service",
-										"type": "LinkedServiceReference"
-									},
 									"typeProperties": {
-										"scripts": [
+										"source": {
+											"type": "MySqlSource",
+											"query": "SELECT MAX(@{item().watermark_column}) AS max_wm FROM @{item().source_table} WHERE @{item().watermark_column} > '@{item().last_watermark}'"
+										},
+										"dataset": {
+											"referenceName": "ds_mysql_generic",
+											"type": "DatasetReference",
+											"parameters": {
+												"tableName": "@item().source_table"
+											}
+										}
+									}
+								},
+								{
+									"name": "IfRowsCopied",
+									"type": "IfCondition",
+									"dependsOn": [
+										{
+											"activity": "GetMaxFromCopiedData",
+											"dependencyConditions": [
+												"Succeeded"
+											]
+										}
+									],
+									"userProperties": [],
+									"typeProperties": {
+										"expression": {
+											"value": "@greater(activity('CopyMySQLToADLS').output.rowsCopied, 0)",
+											"type": "Expression"
+										},
+										"ifFalseActivities": [
 											{
-												"type": "Query",
-												"text": {
-													"value": "UPDATE pipeline_watermark_audit\nSET last_watermark = '@{activity('GetBatchMaxWatermark').output.firstRow.max_wm}',\n    updated_at = CURRENT_TIMESTAMP\nWHERE pipeline_name = 'pl_pharma_sales_incremental';",
-													"type": "Expression"
+												"name": "if_no_data",
+												"type": "SetVariable",
+												"dependsOn": [],
+												"policy": {
+													"secureOutput": false,
+													"secureInput": false
+												},
+												"userProperties": [],
+												"typeProperties": {
+													"variableName": "log_message",
+													"value": "\"No new data for this run\""
 												}
 											}
 										],
-										"scriptBlockExecutionTimeout": "02:00:00"
+										"ifTrueActivities": [
+											{
+												"name": "UpdateTableWatermark",
+												"type": "Script",
+												"dependsOn": [],
+												"policy": {
+													"timeout": "0.12:00:00",
+													"retry": 0,
+													"retryIntervalInSeconds": 30,
+													"secureOutput": false,
+													"secureInput": false
+												},
+												"userProperties": [],
+												"linkedServiceName": {
+													"referenceName": "AzureSqlDatabase_linked_service",
+													"type": "LinkedServiceReference"
+												},
+												"typeProperties": {
+													"scripts": [
+														{
+															"type": "Query",
+															"text": "UPDATE pipeline_watermark_audit\n     SET last_watermark = '@{activity('GetMaxFromCopiedData').output.firstRow.max_wm}',\n         updated_at = GETDATE()\n     WHERE source_table = '@{item().source_table}'"
+														}
+													],
+													"scriptBlockExecutionTimeout": "02:00:00"
+												}
+											}
+										]
 									}
 								}
 							]
@@ -290,14 +285,13 @@
 			},
 			"dependsOn": [
 				"[concat(variables('factoryId'), '/datasets/ds_azsql_watermark')]",
-				"[concat(variables('factoryId'), '/datasets/MySqlTable_pharma_sales')]",
-				"[concat(variables('factoryId'), '/datasets/Parquet1')]",
-				"[concat(variables('factoryId'), '/linkedServices/AzureDatabricks_linked_service')]",
+				"[concat(variables('factoryId'), '/datasets/ds_mysql_generic')]",
+				"[concat(variables('factoryId'), '/datasets/ds_adls_generic')]",
 				"[concat(variables('factoryId'), '/linkedServices/AzureSqlDatabase_linked_service')]"
 			]
 		},
 		{
-			"name": "[concat(parameters('factoryName'), '/MySqlTable_pharma_sales')]",
+			"name": "[concat(parameters('factoryName'), '/ds_mysql_generic')]",
 			"type": "Microsoft.DataFactory/factories/datasets",
 			"apiVersion": "2018-06-01",
 			"properties": {
@@ -305,11 +299,19 @@
 					"referenceName": "MySql1",
 					"type": "LinkedServiceReference"
 				},
+				"parameters": {
+					"tableName": {
+						"type": "string"
+					}
+				},
 				"annotations": [],
 				"type": "MySqlTable",
 				"schema": [],
 				"typeProperties": {
-					"tableName": "`pharma_sales`"
+					"tableName": {
+						"value": "@dataset().tableName",
+						"type": "Expression"
+					}
 				}
 			},
 			"dependsOn": [
@@ -317,7 +319,7 @@
 			]
 		},
 		{
-			"name": "[concat(parameters('factoryName'), '/Parquet1')]",
+			"name": "[concat(parameters('factoryName'), '/ds_adls_generic')]",
 			"type": "Microsoft.DataFactory/factories/datasets",
 			"apiVersion": "2018-06-01",
 			"properties": {
@@ -325,16 +327,28 @@
 					"referenceName": "AzureDataLakeStorage1",
 					"type": "LinkedServiceReference"
 				},
+				"parameters": {
+					"folderPath": {
+						"type": "string"
+					},
+					"fileName": {
+						"type": "string",
+						"defaultValue": "data.parquet"
+					}
+				},
 				"annotations": [],
 				"type": "Parquet",
 				"typeProperties": {
 					"location": {
 						"type": "AzureBlobFSLocation",
 						"fileName": {
-							"value": "@concat(\n  'year=', formatDateTime(utcNow(), 'yyyy'),\n  '/month=', formatDateTime(utcNow(), 'MM'),\n  '/day=', formatDateTime(utcNow(), 'dd'),\n  '/data.parquet'\n)\n",
+							"value": "@dataset().fileName",
 							"type": "Expression"
 						},
-						"folderPath": "pharma_sales",
+						"folderPath": {
+							"value": "@dataset().folderPath",
+							"type": "Expression"
+						},
 						"fileSystem": "rawdata"
 					},
 					"compressionCodec": "snappy"
@@ -452,18 +466,38 @@
 				"type": "AzureDatabricks",
 				"typeProperties": {
 					"domain": "https://adb-7405612517124943.3.azuredatabricks.net",
-					"authentication": "MSI",
-					"workspaceResourceId": "/subscriptions/4de5e007-e4c4-4e2b-bb58-efa8aa3a8785/resourceGroups/WIF-RG/providers/Microsoft.Databricks/workspaces/databricks1326578",
-					"credential": {
-						"referenceName": "credential1",
-						"type": "CredentialReference"
+					"accessToken": {
+						"type": "AzureKeyVaultSecret",
+						"store": {
+							"referenceName": "AzureKeyVault1",
+							"type": "LinkedServiceReference"
+						},
+						"secretName": "databricks-pat"
 					},
 					"existingClusterId": "[parameters('AzureDatabricks_linked_service_properties_typeProperties_existingClusterId')]"
 				}
 			},
 			"dependsOn": [
-				"[concat(variables('factoryId'), '/credentials/credential1')]",
 				"[concat(variables('factoryId'), '/linkedServices/AzureKeyVault1')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/AzureKeyVault1')]",
+			"type": "Microsoft.DataFactory/factories/linkedServices",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"annotations": [],
+				"type": "AzureKeyVault",
+				"typeProperties": {
+					"baseUrl": "[parameters('AzureKeyVault1_properties_typeProperties_baseUrl')]",
+					"credential": {
+						"referenceName": "credential1",
+						"type": "CredentialReference"
+					}
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/credentials/credential1')]"
 			]
 		},
 		{
@@ -539,25 +573,6 @@
 				}
 			},
 			"dependsOn": []
-		},
-		{
-			"name": "[concat(parameters('factoryName'), '/AzureKeyVault1')]",
-			"type": "Microsoft.DataFactory/factories/linkedServices",
-			"apiVersion": "2018-06-01",
-			"properties": {
-				"annotations": [],
-				"type": "AzureKeyVault",
-				"typeProperties": {
-					"baseUrl": "[parameters('AzureKeyVault1_properties_typeProperties_baseUrl')]",
-					"credential": {
-						"referenceName": "credential1",
-						"type": "CredentialReference"
-					}
-				}
-			},
-			"dependsOn": [
-				"[concat(variables('factoryId'), '/credentials/credential1')]"
-			]
 		}
 	]
 }

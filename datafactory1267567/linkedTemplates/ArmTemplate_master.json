@@ -23,6 +23,10 @@
 			"type": "string",
 			"defaultValue": "0502-145348-409d2rh7"
 		},
+		"AzureKeyVault1_properties_typeProperties_baseUrl": {
+			"type": "string",
+			"defaultValue": "https://kv-pharma-pipeline.vault.azure.net/"
+		},
 		"AzureSqlDatabase_linked_service_properties_typeProperties_server": {
 			"type": "string",
 			"defaultValue": "dbserver1235456.database.windows.net"
@@ -41,15 +45,11 @@
 		},
 		"MySql1_properties_typeProperties_database": {
 			"type": "string",
-			"defaultValue": "amit_db"
+			"defaultValue": "pharma"
 		},
 		"MySql1_properties_typeProperties_username": {
 			"type": "string",
 			"defaultValue": "root"
-		},
-		"AzureKeyVault1_properties_typeProperties_baseUrl": {
-			"type": "string",
-			"defaultValue": "https://kv-pharma-pipeline.vault.azure.net/"
 		},
 		"containerUri": {
 			"type": "string",
@@ -96,6 +96,9 @@
 					"AzureDataLakeStorage1_properties_typeProperties_url": {
 						"value": "[parameters('AzureDataLakeStorage1_properties_typeProperties_url')]"
 					},
+					"AzureKeyVault1_properties_typeProperties_baseUrl": {
+						"value": "[parameters('AzureKeyVault1_properties_typeProperties_baseUrl')]"
+					},
 					"MySql1_properties_typeProperties_server": {
 						"value": "[parameters('MySql1_properties_typeProperties_server')]"
 					},
@@ -104,9 +107,6 @@
 					},
 					"MySql1_properties_typeProperties_username": {
 						"value": "[parameters('MySql1_properties_typeProperties_username')]"
-					},
-					"AzureKeyVault1_properties_typeProperties_baseUrl": {
-						"value": "[parameters('AzureKeyVault1_properties_typeProperties_baseUrl')]"
 					},
 					"AzureDatabricks_linked_service_properties_typeProperties_existingClusterId": {
 						"value": "[parameters('AzureDatabricks_linked_service_properties_typeProperties_existingClusterId')]"

@@ -17,6 +17,9 @@
 		"AzureDatabricks_linked_service_properties_typeProperties_existingClusterId": {
 			"value": "0502-145348-409d2rh7"
 		},
+		"AzureKeyVault1_properties_typeProperties_baseUrl": {
+			"value": "https://kv-pharma-pipeline.vault.azure.net/"
+		},
 		"AzureSqlDatabase_linked_service_properties_typeProperties_server": {
 			"value": "dbserver1235456.database.windows.net"
 		},
@@ -30,13 +33,10 @@
 			"value": "localhost"
 		},
 		"MySql1_properties_typeProperties_database": {
-			"value": "amit_db"
+			"value": "pharma"
 		},
 		"MySql1_properties_typeProperties_username": {
 			"value": "root"
-		},
-		"AzureKeyVault1_properties_typeProperties_baseUrl": {
-			"value": "https://kv-pharma-pipeline.vault.azure.net/"
 		}
 	}
 }
