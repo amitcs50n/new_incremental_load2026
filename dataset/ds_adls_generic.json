@@ -1,9 +1,18 @@
 {
-	"name": "Parquet1",
+	"name": "ds_adls_generic",
 	"properties": {
 		"linkedServiceName": {
 			"referenceName": "AzureDataLakeStorage1",
 			"type": "LinkedServiceReference"
+		},
+		"parameters": {
+			"folderPath": {
+				"type": "string"
+			},
+			"fileName": {
+				"type": "string",
+				"defaultValue": "data.parquet"
+			}
 		},
 		"annotations": [],
 		"type": "Parquet",
@@ -11,10 +20,13 @@
 			"location": {
 				"type": "AzureBlobFSLocation",
 				"fileName": {
-					"value": "@concat(\n  'year=', formatDateTime(utcNow(), 'yyyy'),\n  '/month=', formatDateTime(utcNow(), 'MM'),\n  '/day=', formatDateTime(utcNow(), 'dd'),\n  '/data.parquet'\n)\n",
+					"value": "@dataset().fileName",
 					"type": "Expression"
 				},
-				"folderPath": "pharma_sales",
+				"folderPath": {
+					"value": "@dataset().folderPath",
+					"type": "Expression"
+				},
 				"fileSystem": "rawdata"
 			},
 			"compressionCodec": "snappy"
