@@ -3,217 +3,6 @@
 	"properties": {
 		"activities": [
 			{
-				"name": "LookupLastWatermark",
-				"type": "Lookup",
-				"dependsOn": [],
-				"policy": {
-					"timeout": "0.12:00:00",
-					"retry": 0,
-					"retryIntervalInSeconds": 30,
-					"secureOutput": false,
-					"secureInput": false
-				},
-				"userProperties": [],
-				"typeProperties": {
-					"source": {
-						"type": "AzureSqlSource",
-						"sqlReaderQuery": "SELECT last_watermark\nFROM pipeline_watermark_audit\nWHERE pipeline_name = 'pl_pharma_sales_incremental';",
-						"queryTimeout": "02:00:00",
-						"partitionOption": "None"
-					},
-					"dataset": {
-						"referenceName": "ds_azsql_watermark",
-						"type": "DatasetReference"
-					}
-				}
-			},
-			{
-				"name": "CopyMySQLToBlobIncremental",
-				"type": "Copy",
-				"dependsOn": [
-					{
-						"activity": "LookupLastWatermark",
-						"dependencyConditions": [
-							"Succeeded"
-						]
-					}
-				],
-				"policy": {
-					"timeout": "0.12:00:00",
-					"retry": 0,
-					"retryIntervalInSeconds": 30,
-					"secureOutput": false,
-					"secureInput": false
-				},
-				"userProperties": [],
-				"typeProperties": {
-					"source": {
-						"type": "MySqlSource",
-						"query": {
-							"value": "SELECT *\nFROM pharma_sales\nWHERE updated_at > '@{activity('LookupLastWatermark').output.firstRow.last_watermark}'",
-							"type": "Expression"
-						}
-					},
-					"sink": {
-						"type": "ParquetSink",
-						"storeSettings": {
-							"type": "AzureBlobFSWriteSettings",
-							"copyBehavior": "FlattenHierarchy"
-						},
-						"formatSettings": {
-							"type": "ParquetWriteSettings"
-						}
-					},
-					"enableStaging": false,
-					"translator": {
-						"type": "TabularTranslator",
-						"typeConversion": true,
-						"typeConversionSettings": {
-							"allowDataTruncation": true,
-							"treatBooleanAsNumber": false
-						}
-					}
-				},
-				"inputs": [
-					{
-						"referenceName": "ds_mysql_generic",
-						"type": "DatasetReference"
-					}
-				],
-				"outputs": [
-					{
-						"referenceName": "ds_adls_generic",
-						"type": "DatasetReference"
-					}
-				]
-			},
-			{
-				"name": "GetBatchMaxWatermark",
-				"type": "Lookup",
-				"dependsOn": [
-					{
-						"activity": "CopyMySQLToBlobIncremental",
-						"dependencyConditions": [
-							"Succeeded"
-						]
-					}
-				],
-				"policy": {
-					"timeout": "0.12:00:00",
-					"retry": 0,
-					"retryIntervalInSeconds": 30,
-					"secureOutput": false,
-					"secureInput": false
-				},
-				"userProperties": [],
-				"typeProperties": {
-					"source": {
-						"type": "MySqlSource",
-						"query": {
-							"value": "SELECT MAX(updated_at) AS max_wm\nFROM pharma_sales\nWHERE updated_at > '@{activity('LookupLastWatermark').output.firstRow.last_watermark}'",
-							"type": "Expression"
-						}
-					},
-					"dataset": {
-						"referenceName": "ds_mysql_generic",
-						"type": "DatasetReference"
-					}
-				}
-			},
-			{
-				"name": "If Condition1",
-				"type": "IfCondition",
-				"dependsOn": [
-					{
-						"activity": "GetBatchMaxWatermark",
-						"dependencyConditions": [
-							"Succeeded"
-						]
-					}
-				],
-				"userProperties": [],
-				"typeProperties": {
-					"expression": {
-						"value": "@greater(activity('CopyMySQLToBlobIncremental').output.rowsCopied, 0)",
-						"type": "Expression"
-					},
-					"ifFalseActivities": [
-						{
-							"name": "Set variable1",
-							"type": "SetVariable",
-							"dependsOn": [],
-							"policy": {
-								"secureOutput": false,
-								"secureInput": false
-							},
-							"userProperties": [],
-							"typeProperties": {
-								"variableName": "log_message",
-								"value": "\"No new data for this run\""
-							}
-						}
-					],
-					"ifTrueActivities": [
-						{
-							"name": "Databricks notebook",
-							"type": "DatabricksNotebook",
-							"dependsOn": [],
-							"policy": {
-								"timeout": "0.12:00:00",
-								"retry": 0,
-								"retryIntervalInSeconds": 30,
-								"secureOutput": false,
-								"secureInput": false
-							},
-							"userProperties": [],
-							"typeProperties": {
-								"notebookPath": "/Users/rinku@ispjooutlook.onmicrosoft.com/new_incremental_load2026/databricks/pharma_sales_pipeline"
-							},
-							"linkedServiceName": {
-								"referenceName": "AzureDatabricks_linked_service",
-								"type": "LinkedServiceReference"
-							}
-						},
-						{
-							"name": "UpdateWatermark",
-							"type": "Script",
-							"dependsOn": [
-								{
-									"activity": "Databricks notebook",
-									"dependencyConditions": [
-										"Succeeded"
-									]
-								}
-							],
-							"policy": {
-								"timeout": "0.12:00:00",
-								"retry": 0,
-								"retryIntervalInSeconds": 30,
-								"secureOutput": false,
-								"secureInput": false
-							},
-							"userProperties": [],
-							"linkedServiceName": {
-								"referenceName": "AzureSqlDatabase_linked_service",
-								"type": "LinkedServiceReference"
-							},
-							"typeProperties": {
-								"scripts": [
-									{
-										"type": "Query",
-										"text": {
-											"value": "UPDATE pipeline_watermark_audit\nSET last_watermark = '@{activity('GetBatchMaxWatermark').output.firstRow.max_wm}',\n    updated_at = CURRENT_TIMESTAMP\nWHERE pipeline_name = 'pl_pharma_sales_incremental';",
-											"type": "Expression"
-										}
-									}
-								],
-								"scriptBlockExecutionTimeout": "02:00:00"
-							}
-						}
-					]
-				}
-			},
-			{
 				"name": "GetActiveConfigs",
 				"type": "Lookup",
 				"dependsOn": [],
@@ -373,6 +162,22 @@
 									"value": "@greater(activity('CopyMySQLToADLS').output.rowsCopied, 0)",
 									"type": "Expression"
 								},
+								"ifFalseActivities": [
+									{
+										"name": "if_no_data",
+										"type": "SetVariable",
+										"dependsOn": [],
+										"policy": {
+											"secureOutput": false,
+											"secureInput": false
+										},
+										"userProperties": [],
+										"typeProperties": {
+											"variableName": "log_message",
+											"value": "\"No new data for this run\""
+										}
+									}
+								],
 								"ifTrueActivities": [
 									{
 										"name": "UpdateTableWatermark",
