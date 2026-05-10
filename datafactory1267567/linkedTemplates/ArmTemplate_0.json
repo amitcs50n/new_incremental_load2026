@@ -205,34 +205,6 @@
 			]
 		},
 		{
-			"name": "[concat(parameters('factoryName'), '/ds_mysql_generic')]",
-			"type": "Microsoft.DataFactory/factories/datasets",
-			"apiVersion": "2018-06-01",
-			"properties": {
-				"linkedServiceName": {
-					"referenceName": "MySql1",
-					"type": "LinkedServiceReference"
-				},
-				"parameters": {
-					"tableName": {
-						"type": "string"
-					}
-				},
-				"annotations": [],
-				"type": "MySqlTable",
-				"schema": [],
-				"typeProperties": {
-					"tableName": {
-						"value": "@dataset().tableName",
-						"type": "Expression"
-					}
-				}
-			},
-			"dependsOn": [
-				"[concat(variables('factoryId'), '/linkedServices/MySql1')]"
-			]
-		},
-		{
 			"name": "[concat(parameters('factoryName'), '/ds_adls_generic')]",
 			"type": "Microsoft.DataFactory/factories/datasets",
 			"apiVersion": "2018-06-01",
@@ -314,6 +286,34 @@
 			},
 			"dependsOn": [
 				"[concat(variables('factoryId'), '/linkedServices/AzureDataLakeStorage1')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/ds_mysql_generic')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "MySql1",
+					"type": "LinkedServiceReference"
+				},
+				"parameters": {
+					"tableName": {
+						"type": "string"
+					}
+				},
+				"annotations": [],
+				"type": "MySqlTable",
+				"schema": [],
+				"typeProperties": {
+					"tableName": {
+						"value": "@dataset().tableName",
+						"type": "Expression"
+					}
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/MySql1')]"
 			]
 		},
 		{
@@ -407,7 +407,10 @@
 									"typeProperties": {
 										"source": {
 											"type": "MySqlSource",
-											"query": "SELECT * FROM @{item().source_table} WHERE @{item().watermark_column} > '@{item().last_watermark}'"
+											"query": {
+												"value": "SELECT * FROM @{item().source_table} WHERE @{item().watermark_column} > '@{item().last_watermark}'",
+												"type": "Expression"
+											}
 										},
 										"sink": {
 											"type": "ParquetSink",
@@ -479,7 +482,10 @@
 									"typeProperties": {
 										"source": {
 											"type": "MySqlSource",
-											"query": "SELECT MAX(@{item().watermark_column}) AS max_wm FROM @{item().source_table} WHERE @{item().watermark_column} > '@{item().last_watermark}'"
+											"query": {
+												"value": "SELECT MAX(@{item().watermark_column}) AS max_wm FROM @{item().source_table} WHERE @{item().watermark_column} > '@{item().last_watermark}'",
+												"type": "Expression"
+											}
 										},
 										"dataset": {
 											"referenceName": "ds_mysql_generic",
@@ -525,7 +531,7 @@
 										],
 										"ifTrueActivities": [
 											{
-												"name": "UpdateTableWatermark",
+												"name": "StagePendingWatermark",
 												"type": "Script",
 												"dependsOn": [],
 												"policy": {
@@ -544,7 +550,10 @@
 													"scripts": [
 														{
 															"type": "Query",
-															"text": "UPDATE pipeline_watermark_audit\n     SET last_watermark = '@{activity('GetMaxFromCopiedData').output.firstRow.max_wm}',\n         updated_at = GETDATE()\n     WHERE source_table = '@{item().source_table}'"
+															"text": {
+																"value": "INSERT INTO pipeline_watermark_pending (run_id, source_table, new_watermark)\nVALUES (\n    '@{pipeline().RunId}',\n    '@{item().source_table}',\n    '@{activity('GetMaxFromCopiedData').output.firstRow.max_watermark}'\n)",
+																"type": "Expression"
+															}
 														}
 													],
 													"scriptBlockExecutionTimeout": "02:00:00"
@@ -554,6 +563,105 @@
 									}
 								}
 							]
+						}
+					},
+					{
+						"name": "RunDatabricksMerges",
+						"type": "DatabricksNotebook",
+						"dependsOn": [
+							{
+								"activity": "ForEachTable",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"notebookPath": "/Users/rinku@ispjooutlook.onmicrosoft.com/pharma_sales_pipeline"
+						},
+						"linkedServiceName": {
+							"referenceName": "AzureDatabricks_linked_service",
+							"type": "LinkedServiceReference"
+						}
+					},
+					{
+						"name": "PromotePendingWatermarks",
+						"type": "Script",
+						"dependsOn": [
+							{
+								"activity": "RunDatabricksMerges",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"linkedServiceName": {
+							"referenceName": "AzureSqlDatabase_linked_service",
+							"type": "LinkedServiceReference"
+						},
+						"typeProperties": {
+							"scripts": [
+								{
+									"type": "Query",
+									"text": {
+										"value": "\nUPDATE w\nSET w.last_watermark = p.new_watermark,\n    w.updated_at = GETDATE()\nFROM pipeline_watermark_audit w\nINNER JOIN pipeline_watermark_pending p\n    ON w.source_table = p.source_table\nWHERE p.run_id = '@{pipeline().RunId}';\n\n-- Clean up this run's pending rows after successful promotion\n\nDELETE FROM pipeline_watermark_pending\nWHERE run_id = '@{pipeline().RunId}';\n",
+										"type": "Expression"
+									}
+								}
+							],
+							"scriptBlockExecutionTimeout": "02:00:00"
+						}
+					},
+					{
+						"name": "on_databricks_failure",
+						"type": "Script",
+						"dependsOn": [
+							{
+								"activity": "RunDatabricksMerges",
+								"dependencyConditions": [
+									"Failed"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"linkedServiceName": {
+							"referenceName": "AzureSqlDatabase_linked_service",
+							"type": "LinkedServiceReference"
+						},
+						"typeProperties": {
+							"scripts": [
+								{
+									"type": "Query",
+									"text": {
+										"value": "DELETE FROM pipeline_watermark_pending WHERE run_id = '@{pipeline().RunId}';\n\n-- Clean up pending rows when this run failed",
+										"type": "Expression"
+									}
+								}
+							],
+							"scriptBlockExecutionTimeout": "02:00:00"
 						}
 					}
 				],
@@ -569,9 +677,10 @@
 			},
 			"dependsOn": [
 				"[concat(variables('factoryId'), '/datasets/ds_azsql_watermark')]",
+				"[concat(variables('factoryId'), '/linkedServices/AzureDatabricks_linked_service')]",
+				"[concat(variables('factoryId'), '/linkedServices/AzureSqlDatabase_linked_service')]",
 				"[concat(variables('factoryId'), '/datasets/ds_mysql_generic')]",
-				"[concat(variables('factoryId'), '/datasets/ds_adls_generic')]",
-				"[concat(variables('factoryId'), '/linkedServices/AzureSqlDatabase_linked_service')]"
+				"[concat(variables('factoryId'), '/datasets/ds_adls_generic')]"
 			]
 		}
 	]
