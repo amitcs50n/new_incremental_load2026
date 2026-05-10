@@ -199,7 +199,7 @@
 										"source": {
 											"type": "MySqlSource",
 											"query": {
-												"value": "SELECT MAX(@{item().watermark_column}) AS max_wm FROM @{item().source_table} WHERE @{item().watermark_column} > '@{item().last_watermark}'",
+												"value": "SELECT MAX(@{item().watermark_column}) AS max_watermark  FROM @{item().source_table} WHERE @{item().watermark_column} > '@{item().last_watermark}'",
 												"type": "Expression"
 											}
 										},
