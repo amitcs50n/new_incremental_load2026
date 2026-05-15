@@ -1,29 +1,4 @@
--- ====================================================================
--- Snowflake Schema — Pharma Sales Pipeline
--- =====================================================================
--- Star schema target for the pipeline. Two schemas separate concerns:
---
---   RAW   — staging layer; mirrors MySQL exactly; OVERWRITTEN every run
---   CORE  — curated dim+fact layer; surrogate keys; SCD2 on customer;
---           PERSISTENT (never truncated)
---
--- Design notes:
---   - Surrogate keys (NUMBER IDENTITY) on every dim. Fact references
---     dims via surrogate keys, not natural keys. This decouples the
---     warehouse from source system identifier changes.
---   - SCD Type 2 on DIM_CUSTOMER only: customer_id is the natural key
---     (NOT unique here — multiple rows per customer_id, one per version).
---     effective_from / effective_to / is_current / scd_hash track history.
---   - SCD Type 1 on DIM_TERRITORY, DIM_PRODUCT, DIM_SALES_REP: natural
---     keys are UNIQUE; rows are upserted in place.
---   - FACT_SALES.transaction_id is UNIQUE — protects against accidental
---     duplicate inserts during MERGE.
---   - etl_loaded_at / etl_updated_at on every CORE table for traceability.
---
--- Run as SYSADMIN:
---   USE ROLE SYSADMIN;
---   -- then run this file
--- =====================================================================
+
 
 USE ROLE SYSADMIN;
 
