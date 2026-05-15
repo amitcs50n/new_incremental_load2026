@@ -2,7 +2,7 @@
 
 # Pharma Sales Incremental Data Pipeline
 
-End-to-end incremental ETL pipeline moving pharmaceutical sales data from MySQL to a Snowflake star schema. Built with Azure Data Factory, ADLS Gen2, Databricks (PySpark), and Snowflake. Production-grade features include two-phase commit watermarks, SCD Type 2 history tracking, and structured logging from Databricks with run_id propagated from ADF for cross-system traceability.
+End-to-end incremental ETL pipeline moving pharmaceutical sales data from MySQL to a Snowflake star schema. Built with Azure Data Factory, ADLS Gen2, Databricks (PySpark), and Snowflake. features include two-phase commit watermarks, SCD Type 2 history tracking, and structured logging from Databricks with run_id from ADF for cross-system traceability.
 
 ```
 MySQL (OLTP source)
@@ -14,11 +14,6 @@ Snowflake (star schema: RAW staging → CORE dim+fact + METADATA logs)
 
 **One ADF trigger → 6 million rows refreshed in ~3 minutes, with full audit trail.**
 
----
-
-## Why this project exists
-
-I built this as a portfolio piece for data engineering roles, but every design decision is the one I'd make in production. Some specific examples:
 
 - **Two-phase commit** for watermark advancement (pending → live only on downstream success)
 - **SCD Type 2** on customer dimension with hash-based change detection
@@ -85,17 +80,16 @@ The first activity in each run pays a ~5-7s warehouse cold-start tax; subsequent
 
 ## Tech stack
 
-| Layer | Technology | Version |
-|---|---|---|
-| Source | MySQL | 8.x (InnoDB) |
-| Orchestration | Azure Data Factory v2 | — |
-| Storage | Azure Data Lake Storage Gen2 | — |
-| Compute | Databricks | DBR 17.3 LTS / Spark 4.0 |
-| Warehouse | Snowflake | Standard edition, XSMALL warehouse |
-| Control plane | Azure SQL Database | — |
-| Secrets | Azure Key Vault | via Databricks secret scope |
-| Languages | Python, SQL | Python 3.11 in Databricks |
-| Version control | Git (this repo) | — |
+| Layer | Technology
+| Source | MySQL | 
+| Orchestration | Azure Data Factory v2 |
+| Storage | Azure Data Lake Storage Gen2 | 
+| Compute | Databricks |
+| Warehouse | Snowflake |
+| Control plane | Azure SQL Database |
+| Secrets | Azure Key Vault , via Databricks secret scope |
+| Languages | Python, SQL |
+| Version control | Git (this repo) |
 
 ---
 
@@ -159,55 +153,13 @@ The first activity in each run pays a ~5-7s warehouse cold-start tax; subsequent
 
 ---
 
-## How to recreate from scratch
-
-### Prerequisites
-
-- Azure subscription with: Data Factory, ADLS Gen2 storage account, Azure SQL DB, Key Vault, Databricks workspace
-- Snowflake account with SYSADMIN access
-- MySQL instance (local or cloud)
-
-### Setup steps
-
-1. **MySQL** — run `sql/mysql/01_create_mysql_schema.sql`. Populate with test data (a generator script exists locally; not committed).
-2. **Snowflake** — run scripts in `sql/snowflake/` in order. Creates `PHARMA_DB` with `RAW`, `CORE`, `METADATA` schemas plus the `pipeline_run_log` table.
-3. **Azure SQL** — create `pipeline_watermark_audit`, `pipeline_watermark_pending` (control plane). Schema not yet in this repo.
-4. **Key Vault** — store secrets: `sf-url`, `sf-user`, `sf-password`, `sf-account`, `storage-account-key`, `databricks-pat`. Names use dashes, not underscores.
-5. **Databricks** — create secret scope `snowflake` backed by Key Vault. Import notebook from `databricks/`.
-6. **ADF** — import pipeline artifacts. Update linked service connection strings for your resources. Publish.
-7. **Run** — Trigger Now from ADF. Verify with `SELECT * FROM PHARMA_DB.METADATA.pipeline_run_log ORDER BY start_time DESC`.
-
----
-
-## What I'd do next (honest limitations)
-
-A few items I deliberately didn't ship for portfolio scope:
+A few items I skipped:
 
 1. **Race condition in ADF watermark capture**. `GetMaxFromCopiedData` currently runs AFTER `CopyMySQLToADLS`. Rows arriving in MySQL between those two activities get lost on next run. The fix is to capture max watermark from MySQL BEFORE the copy starts. Documented; not yet refactored.
 
-2. **rows_inserted / rows_updated in log table are NULL**. The Snowflake Python connector exposes `cur.rowcount` per statement, but my `execute_snowflake_sql` helper discards it. ~30 min refactor to capture and propagate.
+2. **No least-privilege Snowflake role**. Currently uses ACCOUNTADMIN for all pipeline operations. Production should use a custom role with USAGE on warehouse + ALTER/INSERT/UPDATE on specific tables only.
 
-3. **No least-privilege Snowflake role**. Currently uses ACCOUNTADMIN for all pipeline operations. Production should use a custom role with USAGE on warehouse + ALTER/INSERT/UPDATE on specific tables only.
-
-4. **No hard-delete detection**. Watermark-based incremental can detect inserts and updates (any row with `updated_at > watermark`), but not deletions of rows whose `updated_at` never advanced. Production solution is either: (a) CDC via Debezium, (b) source-side trigger preventing hard deletes, (c) weekly reconciliation job.
-
-5. **No ADF-side rows in `pipeline_run_log`**. Currently only Databricks activities write to the table; ADF's own activity runs (Copy, ForEach, Script) are observable via the ADF Monitor tab but aren't joined into the same log table. To unify, I'd add ADF Snowflake Script activities at pipeline start, after each Copy iteration, and at pipeline end. Roughly 1-2 hours of ADF work; deferred because the high-value compute-side logs (Databricks) are already captured.
-
-6. **SQL injection vector in logging helpers**. F-string interpolation in `log_failure` error messages is escaped, but `execute_snowflake_sql` doesn't support parameterized queries. Acceptable for this project (all values from controlled sources), would refactor to use cursor parameter binding in production.
-
----
-
-## Interview talking points
-
-If you're a hiring manager skimming this: the things I'd want to discuss in a screen are —
-
-- The two-phase commit pattern for watermark management
-- Why Snowflake for logs but Azure SQL for watermarks (control plane vs data plane / audit plane)
-- The SCD2 hash-based change detection (including `is_deleted` in the hash so soft-delete events trigger new versions)
-- The PySpark transformations and the row-count assertion pattern
-- The two bug stories above — both are real, both shaped my approach to defensive coding
-- The structured logging with cross-system traceability via ADF run_id
+3. **No hard-delete detection**. Watermark-based incremental can detect inserts and updates (any row with `updated_at > watermark`), but not deletions of rows whose `updated_at` never advanced. solution is either: (a) source-side trigger preventing hard deletes, (b) weekly reconciliation job.
 
   
-
 **Built by [Amit Yadav](https://github.com/amitcs50n) — Data Engineer focused on Azure + Snowflake + Python production pipelines.**
