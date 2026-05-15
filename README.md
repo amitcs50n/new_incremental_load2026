@@ -99,7 +99,7 @@ The first activity in each run pays a ~5-7s warehouse cold-start tax; subsequent
 
 ---
 
-## Bug stories (the real interview material)
+## Bug stories
 
 ### Bug 1: SCD2 staging dedup
 
