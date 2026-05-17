@@ -246,7 +246,10 @@
 							"value": "@pipeline().RunId",
 							"type": "Expression"
 						},
-						"pipeline_name": "@pipeline().Pipeline"
+						"pipeline_name": {
+							"value": "@pipeline().Pipeline",
+							"type": "Expression"
+						}
 					}
 				},
 				"linkedServiceName": {
@@ -332,6 +335,8 @@
 				"type": "String"
 			}
 		},
-		"annotations": []
-	}
+		"annotations": [],
+		"lastPublishTime": "2026-05-14T12:55:25Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
 }

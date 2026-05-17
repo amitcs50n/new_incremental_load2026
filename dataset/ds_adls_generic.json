@@ -75,5 +75,6 @@
 				"type": "BOOLEAN"
 			}
 		]
-	}
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
 }
