@@ -5,16 +5,14 @@
 		"annotations": [],
 		"type": "AzureDatabricks",
 		"typeProperties": {
-			"domain": "https://adb-7405612517124943.3.azuredatabricks.net",
-			"accessToken": {
-				"type": "AzureKeyVaultSecret",
-				"store": {
-					"referenceName": "AzureKeyVault1",
-					"type": "LinkedServiceReference"
-				},
-				"secretName": "databricks-pat"
+			"domain": "https://adb-7405615906060191.11.azuredatabricks.net",
+			"authentication": "MSI",
+			"workspaceResourceId": "/subscriptions/4de5e007-e4c4-4e2b-bb58-efa8aa3a8785/resourceGroups/WIF-RG/providers/Microsoft.Databricks/workspaces/databricks052026",
+			"credential": {
+				"referenceName": "credential1",
+				"type": "CredentialReference"
 			},
-			"existingClusterId": "0502-145348-409d2rh7"
+			"existingClusterId": "0521-090013-izc9mtnf"
 		}
 	}
 }
