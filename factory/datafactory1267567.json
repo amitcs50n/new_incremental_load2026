@@ -8,8 +8,14 @@
 	},
 	"location": "centralindia",
 	"identity": {
-		"type": "SystemAssigned",
+		"type": "SystemAssigned,UserAssigned",
 		"principalId": "96a144d8-7011-4837-a82e-1528facc51c4",
-		"tenantId": "2d6b1630-25ce-4951-a7b2-da336ef252c9"
+		"tenantId": "2d6b1630-25ce-4951-a7b2-da336ef252c9",
+		"userAssignedIdentities": {
+			"/subscriptions/4de5e007-e4c4-4e2b-bb58-efa8aa3a8785/resourcegroups/WIF-RG/providers/Microsoft.ManagedIdentity/userAssignedIdentities/AmitIdentity": {
+				"clientId": "e1cfc252-956e-433a-8c42-1030ddd42e32",
+				"principalId": "4429ca7c-ff70-48ad-973a-27ebfb318298"
+			}
+		}
 	}
 }
