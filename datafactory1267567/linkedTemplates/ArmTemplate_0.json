@@ -31,6 +31,10 @@
 			"type": "string",
 			"defaultValue": "https://storageaccount12344325.dfs.core.windows.net/"
 		},
+		"AzureDatabricks_linked_service_properties_typeProperties_existingClusterId": {
+			"type": "string",
+			"defaultValue": "0521-090013-izc9mtnf"
+		},
 		"AzureKeyVault1_properties_typeProperties_baseUrl": {
 			"type": "string",
 			"defaultValue": "https://kv-pharma-pipeline.vault.azure.net/"
@@ -46,10 +50,6 @@
 		"MySql1_properties_typeProperties_username": {
 			"type": "string",
 			"defaultValue": "root"
-		},
-		"AzureDatabricks_linked_service_properties_typeProperties_existingClusterId": {
-			"type": "string",
-			"defaultValue": "0502-145348-409d2rh7"
 		}
 	},
 	"variables": {
@@ -150,6 +150,28 @@
 						"referenceName": "credential1",
 						"type": "CredentialReference"
 					}
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/credentials/credential1')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/AzureDatabricks_linked_service')]",
+			"type": "Microsoft.DataFactory/factories/linkedServices",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"annotations": [],
+				"type": "AzureDatabricks",
+				"typeProperties": {
+					"domain": "https://adb-7405615906060191.11.azuredatabricks.net",
+					"authentication": "MSI",
+					"workspaceResourceId": "/subscriptions/4de5e007-e4c4-4e2b-bb58-efa8aa3a8785/resourceGroups/WIF-RG/providers/Microsoft.Databricks/workspaces/databricks052026",
+					"credential": {
+						"referenceName": "credential1",
+						"type": "CredentialReference"
+					},
+					"existingClusterId": "[parameters('AzureDatabricks_linked_service_properties_typeProperties_existingClusterId')]"
 				}
 			},
 			"dependsOn": [
@@ -314,30 +336,6 @@
 			},
 			"dependsOn": [
 				"[concat(variables('factoryId'), '/linkedServices/MySql1')]"
-			]
-		},
-		{
-			"name": "[concat(parameters('factoryName'), '/AzureDatabricks_linked_service')]",
-			"type": "Microsoft.DataFactory/factories/linkedServices",
-			"apiVersion": "2018-06-01",
-			"properties": {
-				"annotations": [],
-				"type": "AzureDatabricks",
-				"typeProperties": {
-					"domain": "https://adb-7405612517124943.3.azuredatabricks.net",
-					"accessToken": {
-						"type": "AzureKeyVaultSecret",
-						"store": {
-							"referenceName": "AzureKeyVault1",
-							"type": "LinkedServiceReference"
-						},
-						"secretName": "databricks-pat"
-					},
-					"existingClusterId": "[parameters('AzureDatabricks_linked_service_properties_typeProperties_existingClusterId')]"
-				}
-			},
-			"dependsOn": [
-				"[concat(variables('factoryId'), '/linkedServices/AzureKeyVault1')]"
 			]
 		},
 		{
@@ -683,7 +681,8 @@
 						"type": "String"
 					}
 				},
-				"annotations": []
+				"annotations": [],
+				"lastPublishTime": "2026-05-14T12:55:25Z"
 			},
 			"dependsOn": [
 				"[concat(variables('factoryId'), '/datasets/ds_azsql_watermark')]",

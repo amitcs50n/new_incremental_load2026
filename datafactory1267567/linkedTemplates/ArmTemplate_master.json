@@ -21,7 +21,7 @@
 		},
 		"AzureDatabricks_linked_service_properties_typeProperties_existingClusterId": {
 			"type": "string",
-			"defaultValue": "0502-145348-409d2rh7"
+			"defaultValue": "0521-090013-izc9mtnf"
 		},
 		"AzureKeyVault1_properties_typeProperties_baseUrl": {
 			"type": "string",
@@ -96,6 +96,9 @@
 					"AzureDataLakeStorage1_properties_typeProperties_url": {
 						"value": "[parameters('AzureDataLakeStorage1_properties_typeProperties_url')]"
 					},
+					"AzureDatabricks_linked_service_properties_typeProperties_existingClusterId": {
+						"value": "[parameters('AzureDatabricks_linked_service_properties_typeProperties_existingClusterId')]"
+					},
 					"AzureKeyVault1_properties_typeProperties_baseUrl": {
 						"value": "[parameters('AzureKeyVault1_properties_typeProperties_baseUrl')]"
 					},
@@ -107,9 +110,6 @@
 					},
 					"MySql1_properties_typeProperties_username": {
 						"value": "[parameters('MySql1_properties_typeProperties_username')]"
-					},
-					"AzureDatabricks_linked_service_properties_typeProperties_existingClusterId": {
-						"value": "[parameters('AzureDatabricks_linked_service_properties_typeProperties_existingClusterId')]"
 					}
 				}
 			},

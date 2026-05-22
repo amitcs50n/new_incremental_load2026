@@ -21,7 +21,7 @@
 		},
 		"AzureDatabricks_linked_service_properties_typeProperties_existingClusterId": {
 			"type": "string",
-			"defaultValue": "0502-145348-409d2rh7"
+			"defaultValue": "0521-090013-izc9mtnf"
 		},
 		"AzureKeyVault1_properties_typeProperties_baseUrl": {
 			"type": "string",
@@ -399,7 +399,8 @@
 						"type": "String"
 					}
 				},
-				"annotations": []
+				"annotations": [],
+				"lastPublishTime": "2026-05-14T12:55:25Z"
 			},
 			"dependsOn": [
 				"[concat(variables('factoryId'), '/datasets/ds_azsql_watermark')]",
@@ -584,20 +585,18 @@
 				"annotations": [],
 				"type": "AzureDatabricks",
 				"typeProperties": {
-					"domain": "https://adb-7405612517124943.3.azuredatabricks.net",
-					"accessToken": {
-						"type": "AzureKeyVaultSecret",
-						"store": {
-							"referenceName": "AzureKeyVault1",
-							"type": "LinkedServiceReference"
-						},
-						"secretName": "databricks-pat"
+					"domain": "https://adb-7405615906060191.11.azuredatabricks.net",
+					"authentication": "MSI",
+					"workspaceResourceId": "/subscriptions/4de5e007-e4c4-4e2b-bb58-efa8aa3a8785/resourceGroups/WIF-RG/providers/Microsoft.Databricks/workspaces/databricks052026",
+					"credential": {
+						"referenceName": "credential1",
+						"type": "CredentialReference"
 					},
 					"existingClusterId": "[parameters('AzureDatabricks_linked_service_properties_typeProperties_existingClusterId')]"
 				}
 			},
 			"dependsOn": [
-				"[concat(variables('factoryId'), '/linkedServices/AzureKeyVault1')]"
+				"[concat(variables('factoryId'), '/credentials/credential1')]"
 			]
 		},
 		{
