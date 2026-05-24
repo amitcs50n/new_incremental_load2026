@@ -6,13 +6,12 @@
 		"type": "AzureDatabricks",
 		"typeProperties": {
 			"domain": "https://adb-7405615906060191.11.azuredatabricks.net",
-			"authentication": "MSI",
-			"workspaceResourceId": "/subscriptions/4de5e007-e4c4-4e2b-bb58-efa8aa3a8785/resourceGroups/WIF-RG/providers/Microsoft.Databricks/workspaces/databricks052026",
+			"existingClusterId": "0521-090013-izc9mtnf",
 			"credential": {
 				"referenceName": "credential1",
 				"type": "CredentialReference"
 			},
-			"existingClusterId": "0521-090013-izc9mtnf"
+			"encryptedCredential": "ew0KICAiVmVyc2lvbiI6ICIyMDE3LTExLTMwIiwNCiAgIlByb3RlY3Rpb25Nb2RlIjogIktleSIsDQogICJTZWNyZXRDb250ZW50VHlwZSI6ICJQbGFpbnRleHQiLA0KICAiQ3JlZGVudGlhbElkIjogIkRBVEFGQUNUT1JZQEFCOTVERkY2LTc5MTctNEI5NS04NDBCLTQwNjdCQjA5OUZFNV83OWU0Mjg0OC0wZDM3LTQ4NzYtOWU5Yi0zYTY0YjMxYzdmMTkiDQp9"
 		}
 	}
 }
