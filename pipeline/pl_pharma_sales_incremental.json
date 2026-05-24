@@ -240,7 +240,7 @@
 				},
 				"userProperties": [],
 				"typeProperties": {
-					"notebookPath": "/Users/rinku@ispjooutlook.onmicrosoft.com/new_incremental_load2026/databricks/pharma_sales_pipeline",
+					"notebookPath": "/Users/rinku@ispjooutlook.onmicrosoft.com/pharma-sales-incremental-pipeline/databricks/pharma_sales_pipeline",
 					"baseParameters": {
 						"run_id": {
 							"value": "@pipeline().RunId",
