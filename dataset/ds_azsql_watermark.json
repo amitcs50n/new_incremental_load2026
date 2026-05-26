@@ -25,7 +25,7 @@
 		],
 		"typeProperties": {
 			"schema": "dbo",
-			"table": "pipeline_watermark_audit"
+			"table": "pipeline_watermark_pending"
 		}
 	},
 	"type": "Microsoft.DataFactory/factories/datasets"
