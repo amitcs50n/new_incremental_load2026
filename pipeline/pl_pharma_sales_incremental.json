@@ -235,7 +235,7 @@
 										"userProperties": [],
 										"typeProperties": {
 											"variableName": "has_new_data",
-											"value": "\"false\""
+											"value": "true"
 										}
 									}
 								]
@@ -258,7 +258,7 @@
 				"userProperties": [],
 				"typeProperties": {
 					"expression": {
-						"value": "@\"equals(variables('has_new_data'), 'true')\"\n",
+						"value": "@equals(variables('has_new_data'), 'true')\n",
 						"type": "Expression"
 					},
 					"ifFalseActivities": [
@@ -389,7 +389,8 @@
 				"type": "String"
 			},
 			"has_new_data": {
-				"type": "String"
+				"type": "String",
+				"defaultValue": "false"
 			}
 		},
 		"annotations": [],
