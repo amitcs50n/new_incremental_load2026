@@ -186,7 +186,7 @@
 										"type": "Script",
 										"dependsOn": [
 											{
-												"activity": "CopyMySQLToADLS",
+												"activity": "MarkHasNewData",
 												"dependencyConditions": [
 													"Succeeded"
 												]
@@ -216,6 +216,27 @@
 											],
 											"scriptBlockExecutionTimeout": "02:00:00"
 										}
+									},
+									{
+										"name": "MarkHasNewData",
+										"type": "SetVariable",
+										"dependsOn": [
+											{
+												"activity": "CopyMySQLToADLS",
+												"dependencyConditions": [
+													"Succeeded"
+												]
+											}
+										],
+										"policy": {
+											"secureOutput": false,
+											"secureInput": false
+										},
+										"userProperties": [],
+										"typeProperties": {
+											"variableName": "has_new_data",
+											"value": "\"false\""
+										}
 									}
 								]
 							}
@@ -224,8 +245,8 @@
 				}
 			},
 			{
-				"name": "RunDatabricksMerges",
-				"type": "DatabricksNotebook",
+				"name": "IfAnyDataCopied",
+				"type": "IfCondition",
 				"dependsOn": [
 					{
 						"activity": "ForEachTable",
@@ -234,107 +255,140 @@
 						]
 					}
 				],
-				"policy": {
-					"timeout": "0.12:00:00",
-					"retry": 0,
-					"retryIntervalInSeconds": 30,
-					"secureOutput": false,
-					"secureInput": false
-				},
 				"userProperties": [],
 				"typeProperties": {
-					"notebookPath": "/Users/rinku@ispjooutlook.onmicrosoft.com/new_incremental_load2026/databricks/pharma_sales_pipeline",
-					"baseParameters": {
-						"run_id": {
-							"value": "@pipeline().RunId",
-							"type": "Expression"
+					"expression": {
+						"value": "@\"equals(variables('has_new_data'), 'true')\"\n",
+						"type": "Expression"
+					},
+					"ifFalseActivities": [
+						{
+							"name": "when_no_data_copy",
+							"type": "SetVariable",
+							"dependsOn": [],
+							"policy": {
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "log_message",
+								"value": "No new data in any table; skipped Databricks"
+							}
+						}
+					],
+					"ifTrueActivities": [
+						{
+							"name": "RunDatabricksMerges_copy1",
+							"type": "DatabricksNotebook",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"notebookPath": "/Users/rinku@ispjooutlook.onmicrosoft.com/new_incremental_load2026/databricks/pharma_sales_pipeline",
+								"baseParameters": {
+									"run_id": {
+										"value": "@pipeline().RunId",
+										"type": "Expression"
+									},
+									"pipeline_name": {
+										"value": "@pipeline().Pipeline",
+										"type": "Expression"
+									}
+								}
+							},
+							"linkedServiceName": {
+								"referenceName": "AzureDatabricks_linked_service",
+								"type": "LinkedServiceReference"
+							}
 						},
-						"pipeline_name": {
-							"value": "@pipeline().Pipeline",
-							"type": "Expression"
-						}
-					}
-				},
-				"linkedServiceName": {
-					"referenceName": "AzureDatabricks_linked_service",
-					"type": "LinkedServiceReference"
-				}
-			},
-			{
-				"name": "PromotePendingWatermarks",
-				"type": "Script",
-				"dependsOn": [
-					{
-						"activity": "RunDatabricksMerges",
-						"dependencyConditions": [
-							"Succeeded"
-						]
-					}
-				],
-				"policy": {
-					"timeout": "0.12:00:00",
-					"retry": 0,
-					"retryIntervalInSeconds": 30,
-					"secureOutput": false,
-					"secureInput": false
-				},
-				"userProperties": [],
-				"linkedServiceName": {
-					"referenceName": "AzureSqlDatabase_linked_service",
-					"type": "LinkedServiceReference"
-				},
-				"typeProperties": {
-					"scripts": [
 						{
-							"type": "Query",
-							"text": {
-								"value": "UPDATE w\nSET w.last_watermark = p.new_watermark,\n    w.updated_at = GETDATE()\nFROM pipeline_watermark_audit w\nINNER JOIN pipeline_watermark_pending p\n    ON w.source_table = p.source_table\nWHERE p.run_id = '@{pipeline().RunId}';\n\n-- Clean up this run's pending rows after successful promotion\n\nDELETE FROM pipeline_watermark_pending\nWHERE run_id = '@{pipeline().RunId}';\n",
-								"type": "Expression"
+							"name": "PromotePendingWatermarks_copy1",
+							"type": "Script",
+							"dependsOn": [
+								{
+									"activity": "RunDatabricksMerges_copy1",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"linkedServiceName": {
+								"referenceName": "AzureSqlDatabase_linked_service",
+								"type": "LinkedServiceReference"
+							},
+							"typeProperties": {
+								"scripts": [
+									{
+										"type": "Query",
+										"text": {
+											"value": "UPDATE w\nSET w.last_watermark = p.new_watermark,\n    w.updated_at = GETDATE()\nFROM pipeline_watermark_audit w\nINNER JOIN pipeline_watermark_pending p\n    ON w.source_table = p.source_table\nWHERE p.run_id = '@{pipeline().RunId}';\n\n-- Clean up this run's pending rows after successful promotion\n\nDELETE FROM pipeline_watermark_pending\nWHERE run_id = '@{pipeline().RunId}';\n",
+											"type": "Expression"
+										}
+									}
+								],
+								"scriptBlockExecutionTimeout": "02:00:00"
+							}
+						},
+						{
+							"name": "on_databricks_failure_copy1",
+							"type": "Script",
+							"dependsOn": [
+								{
+									"activity": "RunDatabricksMerges_copy1",
+									"dependencyConditions": [
+										"Failed"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"linkedServiceName": {
+								"referenceName": "AzureSqlDatabase_linked_service",
+								"type": "LinkedServiceReference"
+							},
+							"typeProperties": {
+								"scripts": [
+									{
+										"type": "Query",
+										"text": {
+											"value": "DELETE FROM pipeline_watermark_pending WHERE run_id = '@{pipeline().RunId}';\n\n-- Clean up pending rows when this run failed",
+											"type": "Expression"
+										}
+									}
+								],
+								"scriptBlockExecutionTimeout": "02:00:00"
 							}
 						}
-					],
-					"scriptBlockExecutionTimeout": "02:00:00"
-				}
-			},
-			{
-				"name": "on_databricks_failure",
-				"type": "Script",
-				"dependsOn": [
-					{
-						"activity": "RunDatabricksMerges",
-						"dependencyConditions": [
-							"Failed"
-						]
-					}
-				],
-				"policy": {
-					"timeout": "0.12:00:00",
-					"retry": 0,
-					"retryIntervalInSeconds": 30,
-					"secureOutput": false,
-					"secureInput": false
-				},
-				"userProperties": [],
-				"linkedServiceName": {
-					"referenceName": "AzureSqlDatabase_linked_service",
-					"type": "LinkedServiceReference"
-				},
-				"typeProperties": {
-					"scripts": [
-						{
-							"type": "Query",
-							"text": {
-								"value": "DELETE FROM pipeline_watermark_pending WHERE run_id = '@{pipeline().RunId}';\n\n-- Clean up pending rows when this run failed",
-								"type": "Expression"
-							}
-						}
-					],
-					"scriptBlockExecutionTimeout": "02:00:00"
+					]
 				}
 			}
 		],
 		"variables": {
 			"log_message": {
+				"type": "String"
+			},
+			"has_new_data": {
 				"type": "String"
 			}
 		},
