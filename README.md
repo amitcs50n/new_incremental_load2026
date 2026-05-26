@@ -1,8 +1,6 @@
-# Incremental Load Project
-
 # Pharma Sales Incremental Data Pipeline
 
-End-to-end incremental ETL pipeline moving pharmaceutical sales data from MySQL to a Snowflake star schema. Built with Azure Data Factory, ADLS Gen2, Databricks (PySpark), and Snowflake. features include two-phase commit watermarks, SCD Type 2 history tracking, and structured logging from Databricks with run_id from ADF for cross-system traceability.
+End-to-end incremental ETL pipeline moving pharmaceutical sales data from MySQL to a Snowflake star schema. Built with Azure Data Factory, ADLS Gen2, Databricks (PySpark), and Snowflake. Production-grade features include two-phase commit watermarks, SCD Type 2 history tracking, and structured logging from Databricks with run_id propagated from ADF for cross-system traceability.
 
 ```
 MySQL (OLTP source)
@@ -12,17 +10,18 @@ ADLS Gen2 (partitioned by year/month/day, parquet)
 Snowflake (star schema: RAW staging → CORE dim+fact + METADATA logs)
 ```
 
-**One ADF trigger → 6 million rows refreshed in ~3 minutes, with full audit trail.**
+**One ADF trigger → 7 million rows refreshed in ~3 minutes, with full audit trail.**
 
-
+---
 - **Two-phase commit** for watermark advancement (pending → live only on downstream success)
+- **Race-safe watermark capture** (upper bound captured before copy, copy bounded to it — no silent data loss)
 - **SCD Type 2** on customer dimension with hash-based change detection
 - **Late-arriving dimension handling** in FACT MERGE (defensive backfill via second WHEN MATCHED)
 - **Structured logging** from Databricks with cross-system traceability via ADF run_id
 - **Type-cleansing PySpark transformations** with row-count assertions
 - **Control plane / data plane separation** (watermarks in Azure SQL; analytics + audit logs in Snowflake)
 
-The project caught two real bugs during development that I now talk about in interviews. Both are documented below.
+The project surfaced several real bugs during development that I now talk about in interviews — including a watermark race condition that could have caused silent data loss. All are documented below.
 
 ---
 
@@ -80,20 +79,21 @@ The first activity in each run pays a ~5-7s warehouse cold-start tax; subsequent
 
 ## Tech stack
 
-| Layer | Technology
-| Source | MySQL | 
-| Orchestration | Azure Data Factory v2 |
-| Storage | Azure Data Lake Storage Gen2 | 
-| Compute | Databricks |
-| Warehouse | Snowflake |
-| Control plane | Azure SQL Database |
-| Secrets | Azure Key Vault , via Databricks secret scope |
-| Languages | Python, SQL |
-| Version control | Git (this repo) |
+| Layer | Technology | Version |
+|---|---|---|
+| Source | MySQL | 8.x (InnoDB) |
+| Orchestration | Azure Data Factory v2 | — |
+| Storage | Azure Data Lake Storage Gen2 | — |
+| Compute | Databricks | DBR 17.3 LTS / Spark 4.0 |
+| Warehouse | Snowflake | Standard edition, XSMALL warehouse |
+| Control plane | Azure SQL Database | — |
+| Secrets | Azure Key Vault | via Databricks secret scope |
+| Languages | Python, SQL | Python 3.11 in Databricks |
+| Version control | Git (this repo) | — |
 
 ---
 
-## Bug stories
+## Bug stories (the real interview material)
 
 ### Bug 1: SCD2 staging dedup
 
@@ -127,6 +127,18 @@ The first activity in each run pays a ~5-7s warehouse cold-start tax; subsequent
 
 **Lesson**: Don't trust intermediate format type inference. Always cast back to the contract you expect.
 
+### Bug 4: Watermark race condition
+
+**Symptom**: Potential silent data loss. In the original design, the activity that computed the new watermark ran AFTER the copy completed.
+
+**Root cause**: The copy ran `SELECT * WHERE updated_at > last_watermark` (no upper bound), then a separate step computed the max watermark. Any rows that arrived in MySQL between the copy finishing and the watermark being computed would have their `updated_at` captured into the watermark — but those rows were never copied. On the next run, the pipeline would start from `> new_watermark` and skip them forever. Silent loss, hard to detect.
+
+**Fix**: Restructured the ForEach loop to capture the upper-bound watermark from the source BEFORE the copy (`GetUpperWatermarkBeforeCopy`), then bound the copy explicitly with `WHERE updated_at > last_watermark AND updated_at <= captured_upper_watermark`. The staged watermark is the same pre-copy value. Now the watermark always equals exactly what was copied; rows arriving after the captured ceiling are caught on the next run, not lost.
+
+**Lesson**: In incremental pipelines, the watermark you advance must equal the upper bound of what you actually moved. Computing the watermark from anything that happens after the copy opens a race window. Capture the ceiling first, bound the copy to it, advance the watermark to it.
+
+**Remaining edge case**: Same-second timestamp collisions straddling the copy window are still theoretically possible. Mitigated by `>` on the lower bound; fully solvable with microsecond precision or a primary-key tiebreaker. Sufficient for current volumes.
+
 ---
 
 ## Project structure
@@ -152,14 +164,25 @@ The first activity in each run pays a ~5-7s warehouse cold-start tax; subsequent
 ```
 
 ---
+.
 
-A few items I skipped:
+---
 
-1. **Race condition in ADF watermark capture**. `GetMaxFromCopiedData` currently runs AFTER `CopyMySQLToADLS`. Rows arriving in MySQL between those two activities get lost on next run. The fix is to capture max watermark from MySQL BEFORE the copy starts. Documented; not yet refactored.
+## What I'd do next (honest limitations)
+
+A few items I deliberately didn't ship for portfolio scope:
+
+1. **rows_inserted / rows_updated in log table are NULL**. The Snowflake Python connector exposes `cur.rowcount` per statement, but my `execute_snowflake_sql` helper discards it. ~30 min refactor to capture and propagate.
 
 2. **No least-privilege Snowflake role**. Currently uses ACCOUNTADMIN for all pipeline operations. Production should use a custom role with USAGE on warehouse + ALTER/INSERT/UPDATE on specific tables only.
 
-3. **No hard-delete detection**. Watermark-based incremental can detect inserts and updates (any row with `updated_at > watermark`), but not deletions of rows whose `updated_at` never advanced. solution is either: (a) source-side trigger preventing hard deletes, (b) weekly reconciliation job.
+3. **No hard-delete detection**. Watermark-based incremental can detect inserts and updates (any row with `updated_at > watermark`), but not deletions of rows whose `updated_at` never advanced. Production solution is either: (a) CDC via Debezium, (b) source-side trigger preventing hard deletes, (c) weekly reconciliation job.
 
-  
+4. **No ADF-side rows in `pipeline_run_log`**. Currently only Databricks activities write to the table; ADF's own activity runs (Copy, ForEach, Script) are observable via the ADF Monitor tab but aren't joined into the same log table. To unify, I'd add ADF Snowflake Script activities at pipeline start, after each Copy iteration, and at pipeline end. Roughly 1-2 hours of ADF work; deferred because the high-value compute-side logs (Databricks) are already captured.
+
+5. **Boundary timestamp collision (edge case)**. The watermark uses strict `>` on the lower bound and `<=` on the captured upper bound. A theoretical gap remains if two rows share the exact same `updated_at` second straddling the copy window. For high-throughput systems I'd use microsecond-precision timestamps or pair the watermark with the primary key as a tiebreaker (`watermark > last OR (watermark = last AND pk > last_pk)`). Second-precision is sufficient for current volumes.
+
+6. **SQL injection vector in logging helpers**. F-string interpolation in `log_failure` error messages is escaped, but `execute_snowflake_sql` doesn't support parameterized queries. Acceptable for this project (all values from controlled sources), would refactor to use cursor parameter binding in production.
+
+
 **Built by [Amit Yadav](https://github.com/amitcs50n) — Data Engineer focused on Azure + Snowflake + Python production pipelines.**
