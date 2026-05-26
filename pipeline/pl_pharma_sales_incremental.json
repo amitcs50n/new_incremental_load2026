@@ -98,7 +98,7 @@
 								},
 								"ifFalseActivities": [
 									{
-										"name": "no new data",
+										"name": "NoNewData",
 										"type": "SetVariable",
 										"dependsOn": [],
 										"policy": {
@@ -108,7 +108,7 @@
 										"userProperties": [],
 										"typeProperties": {
 											"variableName": "log_message",
-											"value": "NoNewData"
+											"value": "No New Data found"
 										}
 									}
 								],
