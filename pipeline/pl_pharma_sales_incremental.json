@@ -50,7 +50,14 @@
 						{
 							"name": "CopyMySQLToADLS",
 							"type": "Copy",
-							"dependsOn": [],
+							"dependsOn": [
+								{
+									"activity": "GetUpperWatermarkBeforeCopy",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
 							"policy": {
 								"timeout": "0.12:00:00",
 								"retry": 0,
@@ -215,6 +222,38 @@
 										}
 									}
 								]
+							}
+						},
+						{
+							"name": "GetUpperWatermarkBeforeCopy",
+							"type": "Lookup",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"source": {
+									"type": "MySqlSource",
+									"query": {
+										"value": "select MAX(@{item().watermark_column}) AS upper_watermark\nfrom @{item().source_table} WHERE @{item().watermark_column} > '@{item().last_watermark}'\n",
+										"type": "Expression"
+									}
+								},
+								"dataset": {
+									"referenceName": "ds_mysql_generic",
+									"type": "DatasetReference",
+									"parameters": {
+										"tableName": {
+											"value": "@item().source_table",
+											"type": "Expression"
+										}
+									}
+								}
 							}
 						}
 					]
