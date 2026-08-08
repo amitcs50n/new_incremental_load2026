@@ -1,0 +1,15 @@
+{
+	"name": "datafactory0101849398",
+	"properties": {
+		"trustModeClaimForMi": {
+			"value": "Disabled",
+			"editable": true
+		}
+	},
+	"location": "centralindia",
+	"identity": {
+		"type": "SystemAssigned",
+		"principalId": "a48fd8f7-0887-4235-aa98-6724fa4db032",
+		"tenantId": "2d6b1630-25ce-4951-a7b2-da336ef252c9"
+	}
+}
